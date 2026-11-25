@@ -1,0 +1,19 @@
+/* ============================================================
+   registro-titulo.css
+   Solo el estilo del titulo "Registro de Usuario".
+   Se carga dentro de {% block content %} para ganar en cascada
+   sobre app.css (que se carga desde el <head> del base.html).
+   ============================================================ */
+
+   .registro-container .registro-header h1 {
+    color: #34d399 !important;
+}
+
+.registro-container .registro-header h1 i {
+    color: #10b981 !important;
+}
+
+/* Baja solo la tarjeta del formulario, el título queda igual */
+.registro-container .card {
+    margin-top: 32px;
+}

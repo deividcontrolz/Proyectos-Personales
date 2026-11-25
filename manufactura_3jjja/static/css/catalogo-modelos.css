@@ -1,0 +1,108 @@
+/* ============================================================
+   catalogo-modelos.css
+   Estilos propios del catálogo: botones en verde armonioso.
+   Se carga dentro de {% block content %} para ganar en cascada.
+   ============================================================ */
+
+/* ---- Botón "Registrar Nuevo Modelo" (acción principal) ---- */
+.catalogo-toolbar .btn-registrar-nuevo {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    background: linear-gradient(135deg, #04ad75, #059669);
+    border: none;
+    border-radius: 10px;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.18);
+}
+
+.catalogo-toolbar .btn-registrar-nuevo:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(16, 185, 129, 0.28);
+    color: #ffffff;
+}
+
+.catalogo-toolbar .btn-registrar-nuevo i {
+    font-size: 1.05rem;
+}
+
+/* ---- Botón "Editar" dentro de cada card ---- */
+.model-card .btn-editar-modelo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #00b445;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: all 0.25s ease;
+    text-decoration: none;
+}
+
+.model-card .btn-editar-modelo:hover {
+    background: rgba(16, 185, 129, 0.22);
+    border-color: rgba(16, 185, 129, 0.5);
+    color: #6ee7b7;
+    transform: translateY(-1px);
+}
+
+/* ---- Botón "Ver" (dejarlo neutro para no competir con Editar) ---- */
+.model-card .btn-ver-modelo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: rgba(148, 163, 184, 0.08);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    color: #cbd5e1;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: all 0.25s ease;
+    text-decoration: none;
+}
+
+.model-card .btn-ver-modelo:hover {
+    background: rgba(148, 163, 184, 0.16);
+    color: #f1f5f9;
+    transform: translateY(-1px);
+}
+
+/* ---- Botón "Limpiar búsqueda" y buscador: verde sutil ---- */
+.catalogo-toolbar .btn-buscar {
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #34d399;
+    border-radius: 8px;
+    padding: 0 14px;
+    transition: all 0.25s ease;
+}
+
+.catalogo-toolbar .btn-buscar:hover {
+    background: rgba(16, 185, 129, 0.22);
+    color: #6ee7b7;
+}
+
+.catalogo-toolbar .btn-limpiar {
+    background: rgba(148, 163, 184, 0.08);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    color: #94a3b8;
+    border-radius: 8px;
+    padding: 0 12px;
+    transition: all 0.25s ease;
+}
+
+.catalogo-toolbar .btn-limpiar:hover {
+    background: rgba(148, 163, 184, 0.16);
+    color: #f1f5f9;
+}

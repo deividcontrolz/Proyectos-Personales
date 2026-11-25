@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Panel de Reportes - 3-JJJ-A{% endblock %}
+
+
+
+{% block page_title %}<i class="bi bi-file-earmark-pdf"></i> Panel de <span>Reportes PDF</span>{% endblock %}
+
+{% block content %}
+<div class="reportes-container">
+    <div class="reportes-header">
+        <h1><i class="bi bi-file-earmark-pdf"></i> Generacion de Reportes</h1>
+        <p>Descargue reportes en formato PDF de todos los modulos del sistema</p>
+    </div>
+
+    <div class="reportes-grid">
+        <!-- Usuarios -->
+        <div class="reporte-card">
+            <div class="reporte-icon blue"><i class="bi bi-people"></i></div>
+            <h3>Usuarios Registrados</h3>
+            <p>Reporte completo de todos los usuarios del sistema con sus roles, estados y fechas de registro.</p>
+            <form method="get" action="{% url 'core:reporte_usuarios_pdf' %}" class="filtros-form">
+                <select name="rol" class="filtro-select">
+                    <option value="">Todos los roles</option>
+                    <option value="OPERARIO">Operario</option>
+                    <option value="GERENTE">Gerente</option>
+                    <option value="SUBGERENTE">Subgerente</option>
+                    <option value="DIRECTOR_PRODUCCION">Director Produccion</option>
+                    <option value="DIRECTOR_DESPACHO">Director Despacho</option>
+                </select>
+                <select name="estado" class="filtro-select">
+                    <option value="">Todos los estados</option>
+                    <option value="activo">Activo</option>
+                    <option value="inactivo">Inactivo</option>
+                </select>
+            </form>
+            <a href="{% url 'core:reporte_usuarios_pdf' %}" class="btn-reporte btn-blue" onclick="this.href=this.href+'?'+this.parentElement.querySelector('form').serialize();">
+                <i class="bi bi-download"></i> Descargar PDF
+            </a>
+        </div>
+
+        <!-- Modelos -->
+        <div class="reporte-card">
+            <div class="reporte-icon green"><i class="bi bi-box-seam"></i></div>
+            <h3>Catalogo de Modelos</h3>
+            <p>Reporte del catalogo completo de modelos de calzado con sus materiales y recetas.</p>
+            <a href="{% url 'core:reporte_modelos_pdf' %}" class="btn-reporte btn-green">
+                <i class="bi bi-download"></i> Descargar PDF
+            </a>
+        </div>
+
+        <!-- Lotes -->
+        <div class="reporte-card">
+            <div class="reporte-icon orange"><i class="bi bi-collection"></i></div>
+            <h3>Lotes de Produccion</h3>
+            <p>Reporte de lotes de produccion con modelo, cantidad solicitada y estado actual.</p>
+            <form method="get" action="{% url 'core:reporte_lotes_pdf' %}" class="filtros-form">
+                <select name="estado" class="filtro-select">
+                    <option value="">Todos los estados</option>
+                    <option value="PENDIENTE">Pendiente</option>
+                    <option value="EN_PROCESO">En Proceso</option>
+                    <option value="COMPLETADO">Completado</option>
+                    <option value="APROBADO">Aprobado</option>
+                    <option value="RECHAZADO">Rechazado</option>
+                </select>
+            </form>
+            <a href="{% url 'core:reporte_lotes_pdf' %}" class="btn-reporte btn-orange">
+                <i class="bi bi-download"></i> Descargar PDF
+            </a>
+        </div>
+
+        <!-- Incidentes -->
+        <div class="reporte-card">
+            <div class="reporte-icon red"><i class="bi bi-exclamation-triangle"></i></div>
+            <h3>Incidentes</h3>
+            <p>Reporte historico de incidentes con filtros por estado, fecha y severidad.</p>
+            <form method="get" action="{% url 'core:reporte_incidentes_pdf' %}" class="filtros-form">
+                <select name="estado" class="filtro-select">
+                    <option value="">Todos los estados</option>
+                    <option value="PENDIENTE">Pendiente</option>
+                    <option value="EN_PROCESO">En Proceso</option>
+                    <option value="RESUELTO">Resuelto</option>
+                    <option value="ESCALADO">Escalado</option>
+                </select>
+                <input type="date" name="fecha_desde" class="filtro-select" placeholder="Desde">
+                <input type="date" name="fecha_hasta" class="filtro-select" placeholder="Hasta">
+            </form>
+            <a href="{% url 'core:reporte_incidentes_pdf' %}" class="btn-reporte btn-red">
+                <i class="bi bi-download"></i> Descargar PDF
+            </a>
+        </div>
+
+        <!-- Materiales -->
+        <div class="reporte-card">
+            <div class="reporte-icon purple"><i class="bi bi-layers"></i></div>
+            <h3>Materiales</h3>
+            <p>Reporte de inventario de materiales con unidades de medida y uso en modelos.</p>
+            <a href="{% url 'core:reporte_materiales_pdf' %}" class="btn-reporte btn-purple">
+                <i class="bi bi-download"></i> Descargar PDF
+            </a>
+        </div>
+
+        <!-- Etapas -->
+        <div class="reporte-card">
+            <div class="reporte-icon teal"><i class="bi bi-diagram-3"></i></div>
+            <h3>Etapas de Produccion</h3>
+            <p>Reporte de etapas con operarios asignados, maquinas y registros de produccion.</p>
+            <a href="{% url 'core:reporte_etapas_pdf' %}" class="btn-reporte btn-teal">
+                <i class="bi bi-download"></i> Descargar PDF
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

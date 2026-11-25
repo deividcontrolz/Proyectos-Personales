@@ -1,0 +1,13 @@
+{
+  "fase": "bloqueado",
+  "historial": [
+    {
+      "fecha": "2026-09-17T13:07:01.948242",
+      "admins_eliminados": []
+    },
+    {
+      "fecha": "2026-09-17T13:08:33.092773",
+      "accion": "proteccion_activada"
+    }
+  ]
+}

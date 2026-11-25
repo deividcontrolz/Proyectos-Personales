@@ -1,0 +1,582 @@
+/* ============================================================
+   3-JJJ-A - Sistema de Gestion de Produccion
+   JavaScript consolidado (app.js)
+   Generado desde todos los templates
+   ============================================================ */
+
+/* ============================================================
+   BASE.HTML
+   ============================================================ */
+
+document.addEventListener('click', function(e) {
+    var sidebar = document.getElementById('sidebar');
+    var toggle = document.getElementById('sidebarToggle');
+    if (window.innerWidth <= 768 && sidebar.classList.contains('open')) {
+        if (!sidebar.contains(e.target) && !toggle.contains(e.target)) {
+            sidebar.classList.remove('open');
+        }
+    }
+});
+
+// Auto-cierre de toasts con animacion de salida
+setTimeout(function() {
+    var alerts = document.querySelectorAll('.alert[data-auto-close]');
+    alerts.forEach(function(alert) {
+        alert.classList.add('toast-hiding');
+        alert.addEventListener('animationend', function() {
+            alert.remove();
+        });
+    });
+}, 6000);
+
+/* ============================================================
+   LOGIN.HTML
+   ============================================================ */
+setTimeout(function() {
+    var alerts = document.querySelectorAll('.alert');
+    alerts.forEach(function(alert) {
+        alert.style.transition = 'opacity 0.5s ease';
+        alert.style.opacity = '0';
+        setTimeout(function() { alert.remove(); }, 500);
+    });
+}, 6000);
+
+/* ============================================================
+   REGISTRO.HTML
+   ============================================================ */
+/* ============================================================
+   REGISTRO.HTML
+   ============================================================ */
+   setTimeout(function() {
+    var alerts = document.querySelectorAll('.alert');
+    alerts.forEach(function(alert) {
+        alert.style.transition = 'opacity 0.5s ease';
+        alert.style.opacity = '0';
+        setTimeout(function() { alert.remove(); }, 500);
+    });
+}, 6000);
+
+// ===== MOSTRAR / OCULTAR CONTRASEÑA =====
+document.addEventListener('DOMContentLoaded', function() {
+    var toggleButtons = document.querySelectorAll('.toggle-password-btn');
+
+    // Iconos SVG
+    var eyeSVG = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+    var eyeOffSVG = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
+
+    toggleButtons.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var wrapper = this.closest('.password-wrapper');
+            if (!wrapper) return;
+
+            var input = wrapper.querySelector('input');
+            if (!input) return;
+
+            var isPassword = input.getAttribute('type') === 'password';
+            
+            // Alternar el tipo de input entre 'password' y 'text'
+            input.setAttribute('type', isPassword ? 'text' : 'password');
+            
+            // Alternar el icono
+            this.innerHTML = isPassword ? eyeSVG : eyeOffSVG;
+        });
+    });
+
+    // Inicializacion: los campos de contraseña arrancan OCULTOS,
+    // por lo tanto mostramos el OJO CON RAYA desde el inicio.
+    toggleButtons.forEach(function (btn) {
+        var wrapper = btn.closest('.password-wrapper');
+        if (!wrapper) return;
+        var input = wrapper.querySelector('input');
+        if (input && input.getAttribute('type') === 'password') {
+            btn.innerHTML = eyeOffSVG;
+        }
+    });
+});
+
+/* ============================================================
+   OPERARIO.HTML
+   ============================================================ */
+function enviarMovimiento(tipo) {
+    const loteCode = document.getElementById('op-lote').value.trim();
+    if (!loteCode) {
+        alert("ALERTA: Debe escanear o ingresar el codigo del Lote antes de registrar la accion.");
+        document.getElementById('op-lote').focus();
+        return;
+    }
+    document.getElementById('op-accion').value = tipo;
+    document.querySelector('form').submit();
+}
+
+var opLoteInput = document.getElementById('op-lote');
+if (opLoteInput) {
+    opLoteInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            enviarMovimiento('Entrada');
+        }
+    });
+}
+
+/* ============================================================
+   CONFIGURACION.HTML
+   ============================================================ */
+
+// ===== TABS PRINCIPALES =====
+function switchTab(tabId) {
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+    var btn = document.getElementById('tab-' + tabId);
+    var panel = document.getElementById('panel-' + tabId);
+    if (btn) btn.classList.add('active');
+    if (panel) panel.classList.add('active');
+    localStorage.setItem('config_tab', tabId);
+}
+
+// ===== SUB-TABS =====
+function switchSubTab(parentTab, subTabId) {
+    document.querySelectorAll('[id^="subtab-' + parentTab + '-"]').forEach(function(b) { b.classList.remove('active'); });
+    var subtab = document.getElementById('subtab-' + parentTab + '-' + subTabId);
+    if (subtab) subtab.classList.add('active');
+
+    document.querySelectorAll('[id^="subpanel-' + parentTab + '-"]').forEach(function(p) { p.classList.remove('active'); });
+    var subpanel = document.getElementById('subpanel-' + parentTab + '-' + subTabId);
+    if (subpanel) subpanel.classList.add('active');
+
+    localStorage.setItem('config_subtab_' + parentTab, subTabId);
+}
+
+// Restaurar tabs guardados
+(function() {
+    const savedTab = localStorage.getItem('config_tab');
+    if (savedTab) switchTab(savedTab);
+
+    ['modelos', 'maquinaria', 'etapas', 'lotes'].forEach(function(t) {
+        const savedSub = localStorage.getItem('config_subtab_' + t);
+        if (savedSub) switchSubTab(t, savedSub);
+    });
+})();
+
+// ===== MODAL ELIMINAR ETAPA =====
+function abrirModalEliminar(idEtapa, nombreEtapa) {
+    var idInput = document.getElementById('modal-etapa-id');
+    var nameSpan = document.getElementById('modal-etapa-nombre');
+    var modal = document.getElementById('modal-eliminar-etapa');
+    if (idInput) idInput.value = idEtapa;
+    if (nameSpan) nameSpan.textContent = '"' + nombreEtapa + '"';
+    if (modal) modal.classList.add('active');
+}
+function cerrarModalEliminar() {
+    var modal = document.getElementById('modal-eliminar-etapa');
+    if (modal) modal.classList.remove('active');
+}
+var modalEliminarEtapa = document.getElementById('modal-eliminar-etapa');
+if (modalEliminarEtapa) {
+    modalEliminarEtapa.addEventListener('click', function(e) {
+        if (e.target === this) cerrarModalEliminar();
+    });
+}
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') cerrarModalEliminar();
+});
+
+// ===== MATERIALES =====
+function addMaterialRow() {
+    const container = document.getElementById('materials-container');
+    if (!container) return;
+    const row = document.createElement('div');
+    row.className = 'material-row';
+    row.innerHTML = `
+        <input type="text" name="materiales[]" class="form-control-dark" placeholder="Material" required>
+        <input type="number" step="0.001" name="cantidades[]" class="form-control-dark" placeholder="Cant. por par" required>
+        <button type="button" class="btn-remove" onclick="this.closest('.material-row').remove()">✕</button>
+    `;
+    container.appendChild(row);
+}
+
+// ===== LOTES =====
+function addLoteRow() {
+    const container = document.getElementById('lotes-container');
+    if (!container) return;
+    const row = document.createElement('div');
+    row.className = 'material-row';
+    row.innerHTML = `
+        <input type="text" name="lotes[]" class="form-control-dark" placeholder="ID del Lote" required>
+        <input type="number" name="cantidades[]" class="form-control-dark" placeholder="Cantidad (pares)" required>
+        <button type="button" class="btn-remove" onclick="this.closest('.material-row').remove()">✕</button>
+    `;
+    container.appendChild(row);
+}
+
+/* ============================================================
+   REPORTAR_INCIDENTE.HTML
+   ============================================================ */
+document.addEventListener('DOMContentLoaded', function() {
+    var textarea = document.querySelector('textarea[name="descripcion"]');
+    var charCount = document.getElementById('charCount');
+    if (textarea && charCount) {
+        textarea.addEventListener('input', function() {
+            var len = this.value.length;
+            charCount.textContent = len + ' / 800';
+            if (len > 800) charCount.style.color = '#ef4444';
+            else if (len >= 700) charCount.style.color = '#f59e0b';
+            else charCount.style.color = '#64748b';
+        });
+    }
+});
+
+/* ============================================================
+   ADMIN_USUARIOS.HTML
+   ============================================================ */
+(function() {
+    var modal = document.getElementById('modalPassword');
+    var modalUsuarioId = document.getElementById('modalUsuarioId');
+    var modalUserInfo = document.getElementById('modalUserInfo');
+    var nuevaPass = document.getElementById('nueva_password');
+    var confirmarPass = document.getElementById('confirmar_password');
+    var matchIndicator = document.getElementById('matchIndicator');
+    var strengthFill = document.getElementById('strengthFill');
+    var errorMsg = document.getElementById('errorMsg');
+    var errorText = document.getElementById('errorText');
+
+    window.abrirModalPassword = function(idUsuario, nombreCompleto) {
+        if (modalUsuarioId) modalUsuarioId.value = idUsuario;
+        if (modalUserInfo) modalUserInfo.textContent = idUsuario + ' — ' + nombreCompleto;
+        if (nuevaPass) nuevaPass.value = '';
+        if (confirmarPass) confirmarPass.value = '';
+        if (strengthFill) {
+            strengthFill.className = 'strength-bar-fill';
+        }
+        if (matchIndicator) {
+            matchIndicator.className = 'match-indicator';
+            matchIndicator.innerHTML = '<i class="bi bi-info-circle"></i><span>Las contraseñas deben coincidir</span>';
+        }
+        if (errorMsg) errorMsg.classList.remove('visible');
+        if (modal) modal.classList.add('active');
+        setTimeout(function() { if (nuevaPass) nuevaPass.focus(); }, 100);
+    };
+
+    window.cerrarModalPassword = function() {
+        if (modal) modal.classList.remove('active');
+    };
+
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) cerrarModalPassword();
+        });
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal && modal.classList.contains('active')) {
+            cerrarModalPassword();
+        }
+    });
+
+    window.checkStrength = function() {
+        if (!nuevaPass || !strengthFill) return;
+        var val = nuevaPass.value;
+        strengthFill.className = 'strength-bar-fill';
+        if (val.length === 0) return;
+        var score = 0;
+        if (val.length >= 4) score++;
+        if (val.length >= 8) score++;
+        if (/[A-Z]/.test(val)) score++;
+        if (/[0-9]/.test(val)) score++;
+        if (/[^A-Za-z0-9]/.test(val)) score++;
+
+        if (score <= 2) strengthFill.classList.add('strength-weak');
+        else if (score <= 4) strengthFill.classList.add('strength-medium');
+        else strengthFill.classList.add('strength-strong');
+    };
+
+    window.checkMatch = function() {
+        if (!nuevaPass || !confirmarPass || !matchIndicator) return;
+        var p1 = nuevaPass.value;
+        var p2 = confirmarPass.value;
+        if (p2.length === 0) {
+            matchIndicator.className = 'match-indicator';
+            matchIndicator.innerHTML = '<i class="bi bi-info-circle"></i><span>Las contraseñas deben coincidir</span>';
+            return;
+        }
+        if (p1 === p2) {
+            matchIndicator.className = 'match-indicator ok';
+            matchIndicator.innerHTML = '<i class="bi bi-check-circle"></i><span>Las contraseñas coinciden</span>';
+        } else {
+            matchIndicator.className = 'match-indicator bad';
+            matchIndicator.innerHTML = '<i class="bi bi-x-circle"></i><span>Las contraseñas no coinciden</span>';
+        }
+    };
+
+    window.validarPassword = function(e) {
+        if (!nuevaPass || !confirmarPass || !errorMsg || !errorText) return true;
+        var p1 = nuevaPass.value.trim();
+        var p2 = confirmarPass.value.trim();
+
+        if (p1.length < 4) {
+            errorText.textContent = 'La contraseña debe tener al menos 4 caracteres.';
+            errorMsg.classList.add('visible');
+            nuevaPass.focus();
+            return false;
+        }
+        if (p1 !== p2) {
+            errorText.textContent = 'Las contraseñas no coinciden. Por favor verifique.';
+            errorMsg.classList.add('visible');
+            confirmarPass.focus();
+            return false;
+        }
+        errorMsg.classList.remove('visible');
+        return true;
+    };
+
+    /* ===== MODAL ELIMINAR ===== */
+    var modalDel = document.getElementById('modalEliminar');
+    var delUsuarioId = document.getElementById('delUsuarioId');
+    var delUserName = document.getElementById('delUserName');
+
+    window.abrirModalEliminar = function(idUsuario, nombreCompleto) {
+        if (delUsuarioId) delUsuarioId.value = idUsuario;
+        if (delUserName) delUserName.textContent = idUsuario + ' — ' + nombreCompleto;
+        if (modalDel) modalDel.classList.add('active');
+    };
+
+    window.cerrarModalEliminar = function() {
+        if (modalDel) modalDel.classList.remove('active');
+    };
+
+    if (modalDel) {
+        modalDel.addEventListener('click', function(e) {
+            if (e.target === modalDel) cerrarModalEliminar();
+        });
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modalDel && modalDel.classList.contains('active')) {
+            cerrarModalEliminar();
+        }
+    });
+})();
+
+/* ============================================================
+   DASHBOARD.HTML - Charts (lee datos desde json_script)
+   ============================================================ */
+function initDashboardCharts() {
+    var el = document.getElementById('dashboard-data');
+    if (!el) return;
+    var d = JSON.parse(el.textContent);
+
+    var colors = {
+        green: '#059669', greenLight: '#10b981', blue: '#0284c7',
+        orange: '#d97706', red: '#dc2626', purple: '#7c3aed',
+        gray: '#64748b', dark: '#1e293b'
+    };
+
+    // 1. OEE Gauge
+    new Chart(document.getElementById('oeeChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['OEE', 'Perdida'],
+            datasets: [{
+                data: [d.oee_global, 100 - d.oee_global],
+                backgroundColor: [colors.green, 'rgba(148, 163, 184, 0.1)'],
+                borderWidth: 0, cutout: '75%'
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { enabled: false } }
+        },
+        plugins: [{
+            id: 'textCenter',
+            beforeDraw: function(chart) {
+                var ctx = chart.ctx;
+                ctx.save();
+                ctx.font = 'bold 2.5rem Segoe UI';
+                ctx.fillStyle = colors.greenLight;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(d.oee_global + '%', chart.width/2, chart.height/2);
+                ctx.font = '0.9rem Segoe UI';
+                ctx.fillStyle = colors.gray;
+                ctx.fillText('OEE Global', chart.width/2, chart.height/2 + 28);
+                ctx.restore();
+            }
+        }]
+    });
+
+    // 2. Consumo kWh
+    new Chart(document.getElementById('kwhChart'), {
+        type: 'bar',
+        data: {
+            labels: d.kw_hora_labels,
+            datasets: [{
+                label: 'kWh Consumidos',
+                data: d.kw_hora_values,
+                backgroundColor: colors.blue, borderRadius: 6,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(148,163,184,0.1)' }, ticks: { color: colors.gray } },
+                x: { grid: { display: false }, ticks: { color: colors.gray } }
+            }
+        }
+    });
+
+    // 3. Throughput
+    new Chart(document.getElementById('throughputChart'), {
+        type: 'line',
+        data: {
+            labels: d.throughput_labels,
+            datasets: [{
+                label: 'Throughput (pares/hora)',
+                data: d.throughput_values,
+                borderColor: colors.green,
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                fill: true, tension: 0.4,
+                pointBackgroundColor: colors.green, pointRadius: 5,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(148,163,184,0.1)' }, ticks: { color: colors.gray } },
+                x: { grid: { display: false }, ticks: { color: colors.gray } }
+            }
+        }
+    });
+
+    // 4. Queue Time
+    new Chart(document.getElementById('queueChart'), {
+        type: 'bar',
+        data: {
+            labels: d.queue_time_labels,
+            datasets: [{
+                label: 'Tiempo de Espera (min)',
+                data: d.queue_time_values,
+                backgroundColor: colors.orange, borderRadius: 6,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(148,163,184,0.1)' }, ticks: { color: colors.gray } },
+                x: { grid: { display: false }, ticks: { color: colors.gray } }
+            }
+        }
+    });
+
+    // 5. Balanceo de Linea
+    new Chart(document.getElementById('balanceoChart'), {
+        type: 'bar',
+        data: {
+            labels: d.balanceo_labels,
+            datasets: [
+                { label: 'Actual', data: d.balanceo_actual, backgroundColor: colors.blue, borderRadius: 6 },
+                { label: 'Teorico', data: d.balanceo_teorico, backgroundColor: 'rgba(148, 163, 184, 0.3)', borderRadius: 6 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(148,163,184,0.1)' }, ticks: { color: colors.gray } },
+                x: { grid: { display: false }, ticks: { color: colors.gray } }
+            }
+        }
+    });
+
+    // 6. Capacidad Real vs Teorica
+    new Chart(document.getElementById('capacidadChart'), {
+        type: 'bar',
+        data: {
+            labels: d.capacidad_labels,
+            datasets: [
+                { label: 'Capacidad Real', data: d.capacidad_real, backgroundColor: colors.green, borderRadius: 6 },
+                { label: 'Capacidad Teorica', data: d.capacidad_teorica, backgroundColor: 'rgba(148, 163, 184, 0.3)', borderRadius: 6 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(148,163,184,0.1)' }, ticks: { color: colors.gray } },
+                x: { grid: { display: false }, ticks: { color: colors.gray } }
+            }
+        }
+    });
+
+    // 7. Tiempo Muerto
+    new Chart(document.getElementById('tiempoMuertoChart'), {
+        type: 'line',
+        data: {
+            labels: d.tiempo_muerto_labels,
+            datasets: [{
+                label: 'Tiempo Muerto (min)',
+                data: d.tiempo_muerto_values,
+                borderColor: colors.red,
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                fill: true, tension: 0.4,
+                pointBackgroundColor: colors.red, pointRadius: 5,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(148,163,184,0.1)' }, ticks: { color: colors.gray } },
+                x: { grid: { display: false }, ticks: { color: colors.gray } }
+            }
+        }
+    });
+
+    // 8. Eficiencia por Area
+    new Chart(document.getElementById('eficienciaChart'), {
+        type: 'bar',
+        data: {
+            labels: d.eficiencia_areas,
+            datasets: [{
+                label: 'Eficiencia (%)',
+                data: d.eficiencia_values,
+                backgroundColor: colors.blue, borderRadius: 6,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, max: 100, grid: { color: 'rgba(148,163,184,0.1)' }, ticks: { color: colors.gray } },
+                x: { grid: { display: false }, ticks: { color: colors.gray } }
+            }
+        }
+    });
+
+    // 9. Calidad por Area
+    new Chart(document.getElementById('calidadChart'), {
+        type: 'bar',
+        data: {
+            labels: d.eficiencia_areas,
+            datasets: [{
+                label: 'Calidad (%)',
+                data: d.calidad_values,
+                backgroundColor: colors.green, borderRadius: 6,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, max: 100, grid: { color: 'rgba(148,163,184,0.1)' }, ticks: { color: colors.gray } },
+                x: { grid: { display: false }, ticks: { color: colors.gray } }
+            }
+        }
+    });
+}
+
+// Auto-inicializar dashboard si hay datos
+document.addEventListener('DOMContentLoaded', function() {
+    if (document.getElementById('dashboard-data')) {
+        initDashboardCharts();
+    }
+});

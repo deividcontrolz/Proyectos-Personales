@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Registro de Usuario - 3-JJJ-A{% endblock %}
+{% block page_title %}<i class="bi bi-person-plus"></i> Registro de <span>Usuario</span>{% endblock %}
+
+
+{% block content %}
+<style>
+/* === SOLO TITULO VERDE === */
+.registro-container .registro-header h1 {
+    color: #34d399 !important;
+}
+.registro-container .registro-header h1 i {
+    color: #10b981 !important;
+}
+/* === FIN SOLO TITULO VERDE === */
+</style>
+
+<div class="registro-container">
+    <div class="registro-header">
+        <div>
+            <h1><i class="bi bi-person-plus"></i> Registro de Usuario</h1>
+            <p>Complete los campos para crear una nueva cuenta en el sistema.</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2> Datos del Nuevo Usuario</h2>
+
+        {% if messages %}
+        <div class="messages-container">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} fade-in">
+                <i class="bi bi-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}x-circle{% else %}info-circle{% endif %}"></i>
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <div class="form-grid">
+                <!-- Usuario -->
+                <div class="form-group">
+                    <label for="{{ form.id_usuario.id_for_label }}" class="required">
+                        {{ form.id_usuario.label }}
+                    </label>
+                    {{ form.id_usuario }}
+                    {% if form.id_usuario.errors %}
+                        <ul class="errorlist">{{ form.id_usuario.errors }}</ul>
+                    {% endif %}
+                </div>
+
+                <!-- Nombre completo (conectado al form) -->
+                <div class="form-group">
+                    <label for="{{ form.nombre_completo.id_for_label }}" class="required">
+                        {{ form.nombre_completo.label }}
+                    </label>
+                    {{ form.nombre_completo }}
+                    {% if form.nombre_completo.errors %}
+                        <ul class="errorlist">{{ form.nombre_completo.errors }}</ul>
+                    {% endif %}
+                </div>
+
+                <!-- Rol -->
+                <div class="form-group">
+                    <label for="{{ form.rol.id_for_label }}" class="required">
+                        {{ form.rol.label }}
+                    </label>
+                    {{ form.rol }}
+                    {% if form.rol.errors %}
+                        <ul class="errorlist">{{ form.rol.errors }}</ul>
+                    {% endif %}
+                </div>
+
+                <!-- Etapa asignada -->
+                <div class="form-group">
+                    <label for="{{ form.etapa_asignada.id_for_label }}">
+                        {{ form.etapa_asignada.label }}
+                    </label>
+                    {{ form.etapa_asignada }}
+                    {% if form.etapa_asignada.errors %}
+                        <ul class="errorlist">{{ form.etapa_asignada.errors }}</ul>
+                    {% endif %}
+                </div>
+
+                <!-- Contraseña temporal -->
+                <div class="form-group">
+                    <label for="{{ form.password1.id_for_label }}" class="required">
+                        Contraseña Temporal
+                    </label>
+                    <div class="password-wrapper">
+                        {{ form.password1 }}
+                                                <button type="button" class="toggle-password-btn" aria-label="Mostrar u ocultar contraseña">
+                            <svg class="eye-icon eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                        </button>
+                    </div>
+                    {% if form.password1.errors %}
+                        <ul class="errorlist">{{ form.password1.errors }}</ul>
+                    {% endif %}
+                </div>
+
+                <!-- Confirmar contraseña temporal -->
+                <div class="form-group">
+                    <label for="{{ form.password2.id_for_label }}" class="required">
+                        Confirmar Contraseña Temporal
+                    </label>
+                    <div class="password-wrapper">
+                        {{ form.password2 }}
+                                                <button type="button" class="toggle-password-btn" aria-label="Mostrar u ocultar contraseña">
+                            <svg class="eye-icon eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                        </button>
+                    </div>
+                    {% if form.password2.errors %}
+                        <ul class="errorlist">{{ form.password2.errors }}</ul>
+                    {% endif %}
+                </div>
+
+                <!-- Requisitos -->
+                <div class="password-hints">
+                    <h4><i class="bi bi-shield-check"></i> Requisitos de contraseña</h4>
+                    <ul>
+                        <li>Mínimo 8 caracteres</li>
+                        <li>Debe contener al menos una letra</li>
+                        <li>Debe contener al menos un número</li>
+                        <li>Debe contener al menos un carácter especial</li>
+                        <li>No puede ser completamente numérica</li>
+                    </ul>
+                </div>
+            </div>
+
+            {% if form.non_field_errors %}
+            <div class="form-group" style="margin-top: 12px; margin-bottom: 12px;">
+                <ul class="errorlist">
+                    {% for error in form.non_field_errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <button type="submit" class="btn-submit">
+                <i class="bi bi-person-plus"></i>
+                Crear Cuenta
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+    const btn = document.getElementById('togglePasswordBtn');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+        ['id_password1', 'id_password2'].forEach(function (id) {
+            const inp = document.getElementById(id);
+            if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
+        });
+    });
+})();
+</script>
+{% endblock %}

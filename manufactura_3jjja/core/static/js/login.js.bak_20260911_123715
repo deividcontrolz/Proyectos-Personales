@@ -1,0 +1,19 @@
+document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.toggle-password-btn').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    var wrapper = this.closest('.password-input-wrapper');
+                    var input = wrapper ? wrapper.querySelector('input') : null;
+                    var icon = this.querySelector('i');
+                    if (input) {
+                        if (input.type === 'password') {
+                            input.type = 'text';
+                            icon.className = 'bi bi-eye-slash';
+                        } else {
+                            input.type = 'password';
+                            icon.className = 'bi bi-eye';
+                        }
+                    }
+                });
+            });
+        });
