@@ -1,0 +1,232 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Gestionar Usuarios - 3-JJJ-A{% endblock %}
+
+
+
+{% block page_title %}Gestionar Usuarios{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <!-- Header -->
+    <div class="admin-header">
+        <div>
+            <h1><i class="bi bi-people"></i> Gestionar Usuarios</h1>
+            <p style="color: #94a3b8; margin: 4px 0 0 0; font-size: 0.85rem;">
+                Total: {{ total_usuarios }} usuarios | {{ usuario.nombre_completo }}
+            </p>
+        </div>
+        <a href="{% url 'core:panel_admin' %}" class="btn-back">
+            <i class="bi bi-arrow-left"></i> Volver al Panel
+        </a>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card">
+        <form method="get" class="filter-bar">
+            <div class="filter-group">
+                <label for="rol">Rol</label>
+                <select name="rol" id="rol" class="form-control-dark select-dark">
+                    <option value="">Todos los roles</option>
+                    {% for valor, etiqueta in roles %}
+                    <option value="{{ valor }}" {% if rol_filtro == valor %}selected{% endif %}>
+                        {{ etiqueta }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="estado">Estado</label>
+                <select name="estado" id="estado" class="form-control-dark select-dark">
+                    <option value="">Todos</option>
+                    <option value="activo" {% if estado_filtro == 'activo' %}selected{% endif %}>Activos</option>
+                    <option value="inactivo" {% if estado_filtro == 'inactivo' %}selected{% endif %}>Inactivos</option>
+                </select>
+            </div>
+            <button type="submit" class="btn-filter">
+                <i class="bi bi-funnel"></i> Filtrar
+            </button>
+            <a href="{% url 'core:admin_usuarios' %}" class="btn-back" style="align-self: flex-end;">
+                <i class="bi bi-x-circle"></i> Limpiar
+            </a>
+        </form>
+    </div>
+
+    <!-- Tabla de Usuarios -->
+    <div class="card">
+        <div style="overflow-x: auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Nombre</th>
+                        <th>Rol</th>
+                        <th>Etapa</th>
+                        <th>Estado</th>
+                        <th>Fecha Registro</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in usuarios %}
+                    <tr>
+                        <td><strong>{{ u.id_usuario }}</strong></td>
+                        <td>{{ u.nombre_completo }}</td>
+                        <td>{{ u.get_rol_display }}</td>
+                        <td>{{ u.etapa_asignada.nombre_etapa|default:"N/A" }}</td>
+                        <td>
+                            {% if u.is_active %}
+                                <span class="status-badge badge-activo">Activo</span>
+                            {% else %}
+                                <span class="status-badge badge-inactivo">Inactivo</span>
+                            {% endif %}
+                            {% if u.is_staff %}
+                                <span class="status-badge badge-admin">Admin</span>
+                            {% endif %}
+                            {% if u.bloqueado %}
+                                <span class="status-badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.5); margin-left: 4px;" title="{{ u.motivo_bloqueo|default:'Bloqueado' }}{% if u.minutos_restantes %} ({{ u.minutos_restantes }} min){% endif %}">
+                                    <i class="bi bi-lock-fill"></i> Bloqueado
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>{{ u.fecha_registro|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            <div class="action-group">
+                                <form method="post" class="action-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="usuario_id" value="{{ u.id_usuario }}">
+                                    {% if u.is_active %}
+                                        <button type="submit" name="accion" value="desactivar" class="action-btn action-off" title="Desactivar usuario">
+                                            <i class="bi bi-toggle-on"></i>
+                                        </button>
+                                    {% else %}
+                                        <button type="submit" name="accion" value="activar" class="action-btn action-on" title="Activar usuario">
+                                            <i class="bi bi-check-circle"></i>
+                                        </button>
+                                    {% endif %}
+                                    {% if not u.is_staff %}
+                                        <button type="button" class="action-btn action-del" title="Eliminar usuario"
+                                            onclick="abrirModalEliminar('{{ u.id_usuario }}', '{{ u.nombre_completo }}')">
+                                            <i class="bi bi-x-octagon"></i>
+                                        </button>
+                                    {% endif %}
+                                </form>
+                                <button type="button" class="action-btn action-pwd" title="Cambiar contraseña"
+                                    onclick="abrirModalPassword('{{ u.id_usuario }}', '{{ u.nombre_completo }}')">
+                                    <i class="bi bi-key"></i>
+                                </button>
+                                {% if u.bloqueado %}
+                                <form method="post" action="{% url 'core:admin_desbloquear_usuario' u.id_usuario %}" style="display:inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="action-btn" title="Desbloquear usuario"
+                                        style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">
+                                        <i class="bi bi-unlock-fill"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            <i class="bi bi-inbox" style="font-size: 2rem;"></i><br>
+                            No se encontraron usuarios
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MODAL CAMBIAR CONTRASEÑA ===== -->
+<div class="modal-overlay" id="modalPassword">
+    <div class="modal-box">
+        <div class="modal-header">
+            <i class="bi bi-shield-lock"></i>
+            <div>
+                <h3>Cambiar Contraseña</h3>
+                <p id="modalUserInfo">Usuario</p>
+            </div>
+        </div>
+
+        <form method="post" id="formCambiarPassword" onsubmit="return validarPassword(event)">
+            {% csrf_token %}
+            <input type="hidden" name="accion" value="cambiar_password">
+            <input type="hidden" name="usuario_id" id="modalUsuarioId">
+
+            <div class="form-group">
+                <label for="nueva_password">Nueva contraseña</label>
+                <div class="input-icon-wrap">
+                    <input type="password" name="nueva_password" id="nueva_password"
+                        class="form-control-dark" placeholder="Min. 4 caracteres"
+                        minlength="4" maxlength="50" required
+                        oninput="checkStrength(); checkMatch();">
+                </div>
+                <div class="strength-bar">
+                    <div class="strength-bar-fill" id="strengthFill"></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="confirmar_password">Confirmar contraseña</label>
+                <div class="input-icon-wrap">
+                    <input type="password" name="confirmar_password" id="confirmar_password"
+                        class="form-control-dark" placeholder="Repite la contraseña"
+                        minlength="4" maxlength="50" required
+                        oninput="checkMatch();">
+                </div>
+                <div class="match-indicator" id="matchIndicator">
+                    <i class="bi bi-info-circle"></i>
+                    <span>Las contraseñas deben coincidir</span>
+                </div>
+            </div>
+
+            <div class="error-msg" id="errorMsg">
+                <i class="bi bi-exclamation-circle"></i> <span id="errorText"></span>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn-modal-secondary" onclick="cerrarModalPassword()">
+                    <i class="bi bi-x-lg"></i> Cancelar
+                </button>
+                <button type="submit" class="btn-modal-primary">
+                    <i class="bi bi-check-lg"></i> Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<!-- ===== MODAL CONFIRMAR ELIMINACIÓN ===== -->
+<div class="modal-del-overlay" id="modalEliminar">
+    <div class="modal-del-box">
+        <div class="modal-del-icon">
+            <i class="bi bi-exclamation-triangle"></i>
+        </div>
+        <h3>¿Eliminar usuario?</h3>
+        <p>
+            Estás a punto de eliminar permanentemente al usuario<br>
+            <span class="user-highlight" id="delUserName">usuario</span>.<br>
+            Esta acción no se puede deshacer.
+        </p>
+        <form method="post" id="formEliminarUsuario">
+            {% csrf_token %}
+            <input type="hidden" name="accion" value="eliminar">
+            <input type="hidden" name="usuario_id" id="delUsuarioId">
+            <div class="modal-del-actions">
+                <button type="button" class="btn-del-cancel" onclick="cerrarModalEliminar()">
+                    <i class="bi bi-x-lg"></i> Cancelar
+                </button>
+                <button type="submit" class="btn-del-confirm">
+                    <i class="bi bi-x-octagon"></i> Sí, eliminar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+{% endblock %}
