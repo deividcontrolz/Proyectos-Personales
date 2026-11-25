@@ -1,0 +1,1781 @@
+# -*- coding: utf-8 -*-
+"""
+instalar_password_temporal.py
+=============================
+Instalador del sistema de contraseña temporal para
+Manufacturera de Calzado 3-JJJ-A.
+
+NO modifica la base de datos: usa un archivo JSON en media/sistema/.
+
+Uso:
+    1. Coloca este script en la raíz del proyecto (junto a manage.py)
+    2. Ejecuta:  python instalar_password_temporal.py
+
+El script:
+    - Hace respaldo de los archivos que va a modificar (.bak_FECHA)
+    - Reemplaza core/views.py y core/urls.py
+    - Agrega el formulario al final de core/forms.py (si no existe)
+    - Crea templates/registration/cambiar_password_temporal.html
+    - Verifica que no falte nada
+"""
+
+import os
+import sys
+import shutil
+import importlib.util
+from datetime import datetime
+from pathlib import Path
+
+
+# ============================================================
+# COLORES EN CONSOLA (compatibles con Windows 7)
+# ============================================================
+def _color_ok(msg):    return "[OK]   " + msg
+def _color_err(msg):   return "[ERROR] " + msg
+def _color_warn(msg):  return "[!]    " + msg
+def _color_info(msg):  return "[i]    " + msg
+
+
+# ============================================================
+# ENCONTRAR RAÍZ DEL PROYECTO
+# ============================================================
+def encontrar_raiz_proyecto():
+    """Busca manage.py subiendo hasta 3 niveles desde el cwd."""
+    cwd = Path.cwd().resolve()
+    for candidato in [cwd, cwd.parent, cwd.parent.parent, cwd.parent.parent.parent]:
+        if (candidato / "manage.py").exists():
+            return candidato
+    return None
+
+
+# ============================================================
+# ENCONTRAR APP CORE
+# ============================================================
+def encontrar_app_core(raiz):
+    """Devuelve la carpeta de la app core (o similar)."""
+    candidatos = [raiz / "core"]
+    # Buscar cualquier carpeta con models.py dentro de subcarpetas del proyecto
+    for sub in raiz.iterdir():
+        if sub.is_dir() and (sub / "models.py").exists() and (sub / "views.py").exists():
+            if sub not in candidatos:
+                candidatos.append(sub)
+    for c in candidatos:
+        if (c / "views.py").exists() and (c / "urls.py").exists():
+            return c
+    return None
+
+
+# ============================================================
+# RESPALDO
+# ============================================================
+def hacer_respaldo(archivo):
+    """Copia archivo a .bak_FECHAHORA si existe."""
+    if not archivo.exists():
+        return None
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    destino = archivo.with_name(archivo.name + f".bak_{stamp}")
+    shutil.copy2(archivo, destino)
+    return destino
+
+
+# ============================================================
+# CONTENIDO: core/views.py
+# ============================================================
+CONTENIDO_VIEWS = r'''# -*- coding: utf-8 -*-
+"""
+views.py - Vistas del Sistema de Gestion de Produccion
+Manufacturera de Calzado 3-JJJ-A
+
+Sistema de contraseña temporal SIN modificar la base de datos:
+el estado se guarda en media/sistema/password_temporal.json
+"""
+
+import json
+import logging
+import os
+from pathlib import Path
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.db.models import Q
+from django.utils import timezone
+from django.core.files.storage import default_storage
+from django.conf import settings
+
+from .models import (
+    Usuario, Material, Modelo, MaterialModelo,
+    LoteProduccion, Etapa, RegistroEtapa,
+    DesperdicioMaterial, Maquinaria, Incidente,
+    ROL_OPERARIO, ROL_GERENTE, ROL_SUBGERENTE,
+    ROL_DIRECTOR_PRODUCCION, ROL_DIRECTOR_DESPACHO,
+    ROLES_CHOICES,
+    TIPO_INCIDENTE_CHOICES, ESTADO_INCIDENTE_CHOICES, SEVERIDAD_CHOICES
+)
+from .forms import (
+    IncidenteForm, ActualizarIncidenteForm,
+    ModeloCalzadoForm, BusquedaModeloForm, RegistroUsuarioForm,
+    LoginForm, MaquinariaForm,
+    CambiarPasswordTemporalForm,
+)
+from .services import (
+    obtener_resumen_dashboard,
+    obtener_incidentes_activos,
+    obtener_estadisticas_incidentes,
+    calcular_oee_global,
+    obtener_eficiencia_por_area,
+    obtener_modelos_activos,
+    obtener_todos_modelos,
+    obtener_datos_operario,
+    obtener_datos_calidad,
+    obtener_datos_configuracion,
+    calcular_consumo_energetico,
+)
+
+logger = logging.getLogger(__name__)
+
+
+# ============================================================
+# SISTEMA DE CONTRASEÑA TEMPORAL (archivo JSON - sin BD)
+# ============================================================
+def _ruta_archivo_temporales():
+    """Ruta del archivo JSON donde se registran los usuarios con pass temporal."""
+    base = Path(getattr(settings, 'MEDIA_ROOT', settings.BASE_DIR))
+    carpeta = base / 'sistema'
+    carpeta.mkdir(parents=True, exist_ok=True)
+    return carpeta / 'password_temporal.json'
+
+
+def _cargar_temporales():
+    """Devuelve la lista de IDs de usuario con contraseña temporal."""
+    ruta = _ruta_archivo_temporales()
+    if not ruta.exists():
+        return []
+    try:
+        with open(ruta, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            return [str(x) for x in data]
+        return []
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
+def _guardar_temporales(lista):
+    """Guarda la lista de IDs en el archivo JSON (sin duplicados)."""
+    ruta = _ruta_archivo_temporales()
+    unicos = sorted(set(str(x) for x in lista))
+    with open(ruta, 'w', encoding='utf-8') as f:
+        json.dump(unicos, f, ensure_ascii=False, indent=2)
+
+
+def marcar_password_temporal(id_usuario):
+    """Marca al usuario como poseedor de contraseña temporal."""
+    if not id_usuario:
+        return
+    lista = _cargar_temporales()
+    id_usuario = str(id_usuario)
+    if id_usuario not in lista:
+        lista.append(id_usuario)
+        _guardar_temporales(lista)
+
+
+def quitar_password_temporal(id_usuario):
+    """Quita la marca de contraseña temporal del usuario."""
+    if not id_usuario:
+        return
+    lista = _cargar_temporales()
+    id_usuario = str(id_usuario)
+    if id_usuario in lista:
+        lista.remove(id_usuario)
+        _guardar_temporales(lista)
+
+
+def tiene_password_temporal(id_usuario):
+    """Verifica si el usuario tiene contraseña temporal pendiente."""
+    if not id_usuario:
+        return False
+    return str(id_usuario) in _cargar_temporales()
+
+
+# ============================================================
+# HELPER: Imagenes de modelos (sin campo en BD)
+# ============================================================
+def get_imagen_modelo_url(id_modelo):
+    extensiones = ['.jpg', '.jpeg', '.png', '.webp']
+    for ext in extensiones:
+        ruta = os.path.join('modelos', f"{id_modelo}{ext}")
+        if default_storage.exists(ruta):
+            return os.path.join(settings.MEDIA_URL, ruta).replace('\\', '/')
+    return None
+
+
+def guardar_imagen_modelo(id_modelo, archivo):
+    ext = os.path.splitext(archivo.name)[1].lower()
+    if ext not in ['.jpg', '.jpeg', '.png', '.webp']:
+        ext = '.jpg'
+    nombre_archivo = f"modelos/{id_modelo}{ext}"
+    for old_ext in ['.jpg', '.jpeg', '.png', '.webp']:
+        old_ruta = f"modelos/{id_modelo}{old_ext}"
+        if default_storage.exists(old_ruta):
+            default_storage.delete(old_ruta)
+    default_storage.save(nombre_archivo, archivo)
+    return os.path.join(settings.MEDIA_URL, nombre_archivo).replace('\\', '/')
+
+
+def eliminar_imagen_modelo(id_modelo):
+    eliminada = False
+    for ext in ['.jpg', '.jpeg', '.png', '.webp']:
+        ruta = f"modelos/{id_modelo}{ext}"
+        if default_storage.exists(ruta):
+            default_storage.delete(ruta)
+            eliminada = True
+    return eliminada
+
+
+# ============================================================
+# SESION Y AUTENTICACION PROPIA
+# ============================================================
+SESSION_KEY = 'usuario_id'
+
+
+def get_usuario_sesion(request):
+    usuario_id = request.session.get(SESSION_KEY)
+    if usuario_id:
+        try:
+            return Usuario.objects.get(id_usuario=usuario_id)
+        except Usuario.DoesNotExist:
+            pass
+    return None
+
+
+def requiere_rol(*roles_permitidos):
+    """Decorador para restringir vistas por rol y forzar cambio de contraseña temporal."""
+    def decorator(view_func):
+        def wrapper(request, *args, **kwargs):
+            usuario = get_usuario_sesion(request)
+            if not usuario:
+                messages.error(request, 'Debe iniciar sesion para acceder.')
+                return redirect('core:login')
+            if tiene_password_temporal(usuario.id_usuario):
+                messages.warning(
+                    request,
+                    'Debe cambiar su contraseña temporal antes de continuar.'
+                )
+                return redirect('core:cambiar_password_temporal')
+            if usuario.rol not in roles_permitidos and not usuario.is_staff:
+                return render(request, 'errors/403.html', status=403)
+            request.usuario_actual = usuario
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
+
+# ============================================================
+# 0. VISTA: LOGIN PERSONALIZADO
+# ============================================================
+def login_view(request):
+    if request.method == 'POST':
+        form = LoginForm(request.POST)
+        if form.is_valid():
+            username = form.cleaned_data['username']
+            password = form.cleaned_data['password']
+            try:
+                user = Usuario.objects.get(id_usuario=username)
+                if user.check_password(password) and user.is_active:
+                    request.session[SESSION_KEY] = user.id_usuario
+                    request.session.set_expiry(0)
+                    request.session.modified = True
+
+                    if tiene_password_temporal(user.id_usuario):
+                        messages.warning(
+                            request,
+                            'Su contraseña es temporal. Debe cambiarla antes de continuar.'
+                        )
+                        return redirect('core:cambiar_password_temporal')
+
+                    messages.success(request, f'Bienvenido, {user.nombre_completo}.')
+                    return redirect('core:redirect_por_rol')
+                else:
+                    messages.error(request, 'Usuario o contrasena incorrectos.')
+            except Usuario.DoesNotExist:
+                messages.error(request, 'Usuario o contrasena incorrectos.')
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, error)
+    else:
+        form = LoginForm()
+    return render(request, 'registration/login.html', {'form': form})
+
+
+def logout_view(request):
+    if SESSION_KEY in request.session:
+        del request.session[SESSION_KEY]
+    messages.info(request, 'Ha cerrado sesion correctamente.')
+    return redirect('core:login')
+
+
+# ============================================================
+# VISTA: CAMBIO OBLIGATORIO DE CONTRASEÑA TEMPORAL
+# ============================================================
+def cambiar_password_temporal_view(request):
+    usuario = get_usuario_sesion(request)
+    if not usuario:
+        messages.error(request, 'Debe iniciar sesion para acceder.')
+        return redirect('core:login')
+
+    if not tiene_password_temporal(usuario.id_usuario):
+        return redirect('core:redirect_por_rol')
+
+    if request.method == 'POST':
+        form = CambiarPasswordTemporalForm(request.POST)
+        if form.is_valid():
+            nueva = form.cleaned_data['password1']
+            usuario.set_password(nueva)
+            usuario.save()
+            quitar_password_temporal(usuario.id_usuario)
+            messages.success(
+                request,
+                'Contraseña actualizada correctamente. Bienvenido al sistema.'
+            )
+            return redirect('core:redirect_por_rol')
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, error)
+    else:
+        form = CambiarPasswordTemporalForm()
+
+    return render(
+        request,
+        'registration/cambiar_password_temporal.html',
+        {'form': form, 'usuario': usuario}
+    )
+
+
+def redirect_por_rol(request):
+    usuario = get_usuario_sesion(request)
+    if not usuario:
+        messages.error(request, 'Debe iniciar sesion primero.')
+        return redirect('core:login')
+
+    if tiene_password_temporal(usuario.id_usuario):
+        return redirect('core:cambiar_password_temporal')
+
+    if usuario.rol in (ROL_GERENTE, ROL_SUBGERENTE):
+        return redirect('core:dashboard')
+    elif usuario.rol in (ROL_DIRECTOR_PRODUCCION, ROL_DIRECTOR_DESPACHO):
+        return redirect('core:configuracion')
+    elif usuario.rol == ROL_OPERARIO:
+        if usuario.etapa_asignada:
+            return redirect('core:operario_etapa', etapa_id=usuario.etapa_asignada.id_etapa)
+        return redirect('core:operario')
+    return redirect('core:dashboard')
+
+
+# ============================================================
+# 1. VISTA: DASHBOARD GERENCIAL
+# ============================================================
+@requiere_rol(ROL_GERENTE, ROL_SUBGERENTE)
+def dashboard_view(request):
+    resumen = obtener_resumen_dashboard()
+    contexto = {
+        'usuario': request.usuario_actual,
+        'oee': resumen['oee'],
+        'eficiencia_area': resumen['eficiencia_area'],
+        'incidentes_stats': resumen['incidentes'],
+        'incidentes_activos': resumen['incidentes_activos'],
+        'total_modelos': resumen['total_modelos'],
+        'total_lotes': resumen['total_lotes'],
+        'total_etapas': resumen['total_etapas'],
+        'total_operarios': resumen['total_operarios'],
+        'areas_json': resumen['eficiencia_area']['areas'],
+        'eficiencia_json': resumen['eficiencia_area']['eficiencia'],
+        'calidad_json': resumen['eficiencia_area']['calidad'],
+        'oee_valor': resumen['oee']['oee_global'],
+        'kw_hora': resumen['kw_hora'],
+        'total_kwh': sum(resumen['kw_hora']['values']),
+        'queue_time': resumen['queue_time'],
+        'throughput': resumen['throughput'],
+        'balanceo_linea': resumen['balanceo_linea'],
+        'tiempo_muerto': resumen['tiempo_muerto'],
+        'capacidad_real': resumen['capacidad_real'],
+    }
+
+    dashboard_data = {
+        'oee_global': resumen['oee']['oee_global'],
+        'kw_hora_labels': resumen['kw_hora']['labels'],
+        'kw_hora_values': resumen['kw_hora']['values'],
+        'throughput_labels': resumen['throughput']['labels'],
+        'throughput_values': resumen['throughput']['values'],
+        'queue_time_labels': resumen['queue_time']['labels'],
+        'queue_time_values': resumen['queue_time']['values'],
+        'balanceo_labels': resumen['balanceo_linea']['labels'],
+        'balanceo_actual': resumen['balanceo_linea']['actual'],
+        'balanceo_teorico': resumen['balanceo_linea']['teorico'],
+        'capacidad_labels': resumen['capacidad_real']['labels'],
+        'capacidad_real': resumen['capacidad_real']['real'],
+        'capacidad_teorica': resumen['capacidad_real']['teorica'],
+        'tiempo_muerto_labels': resumen['tiempo_muerto']['labels'],
+        'tiempo_muerto_values': resumen['tiempo_muerto']['values'],
+        'eficiencia_areas': resumen['eficiencia_area']['areas'],
+        'eficiencia_values': resumen['eficiencia_area']['eficiencia'],
+        'calidad_values': resumen['eficiencia_area']['calidad'],
+    }
+    contexto['dashboard_data'] = dashboard_data
+
+    return render(request, 'dashboard/dashboard.html', contexto)
+
+
+# ============================================================
+# 2. VISTA: CONFIGURACION
+# ============================================================
+@requiere_rol(ROL_DIRECTOR_PRODUCCION, ROL_DIRECTOR_DESPACHO)
+def configuracion_view(request):
+    datos = obtener_datos_configuracion()
+    if request.method == 'POST':
+        form_type = request.POST.get('form_type', '')
+        if form_type == 'modelo':
+            nombre = request.POST.get('nombre_modelo', '').strip()
+            material_nombre = request.POST.get('material', '').strip()
+            materiales_list = request.POST.getlist('materiales[]')
+            cantidades_list = request.POST.getlist('cantidades[]')
+            if nombre:
+                id_modelo = f"MOD-{timezone.now().strftime('%Y%m%d')}-{Modelo.objects.count() + 1:03d}"
+                modelo = Modelo.objects.create(id_modelo=id_modelo, nombre=nombre)
+                if material_nombre:
+                    mat, _ = Material.objects.get_or_create(nombre_material=material_nombre, defaults={'unidad_medida': 'm'})
+                    MaterialModelo.objects.create(id_modelo=modelo, id_material=mat, cantidad_por_par=1.0)
+                for i, mat_nombre in enumerate(materiales_list):
+                    if mat_nombre.strip() and i < len(cantidades_list):
+                        try:
+                            cant = float(cantidades_list[i])
+                            mat, _ = Material.objects.get_or_create(nombre_material=mat_nombre.strip(), defaults={'unidad_medida': 'm'})
+                            MaterialModelo.objects.create(id_modelo=modelo, id_material=mat, cantidad_por_par=cant)
+                        except ValueError:
+                            pass
+                messages.success(request, f'Modelo "{nombre}" registrado exitosamente.')
+                return redirect('core:configuracion')
+        elif form_type == 'energia':
+            maquina_id = request.POST.get('maquina_id', '').strip()
+            potencia = request.POST.get('potencia_kw', '').strip()
+            factor = request.POST.get('factor_carga', '').strip()
+            if maquina_id:
+                try:
+                    maquina = Maquinaria.objects.get(id_maquina=maquina_id)
+                    if potencia:
+                        maquina.potencia_kw = float(potencia)
+                    if factor:
+                        maquina.factor_carga = float(factor)
+                    maquina.save()
+                    messages.success(request, f'Maquina {maquina_id} actualizada.')
+                except Maquinaria.DoesNotExist:
+                    etapa = Etapa.objects.first()
+                    Maquinaria.objects.create(
+                        id_maquina=maquina_id,
+                        potencia_kw=float(potencia) if potencia else 0,
+                        factor_carga=float(factor) if factor else 1.0,
+                        id_etapa=etapa
+                    )
+                    messages.success(request, f'Maquina {maquina_id} creada.')
+                except ValueError:
+                    messages.error(request, 'Valores numericos invalidos.')
+            return redirect('core:configuracion')
+        elif form_type == 'etapa':
+            id_etapa = request.POST.get('id_etapa', '').strip().upper()
+            nombre_etapa = request.POST.get('nombre_etapa', '').strip()
+            secuencia = request.POST.get('secuencia', '').strip()
+            if id_etapa and nombre_etapa:
+                if Etapa.objects.filter(id_etapa=id_etapa).exists():
+                    messages.error(request, f'La etapa con ID "{id_etapa}" ya existe.')
+                else:
+                    try:
+                        sec = int(secuencia) if secuencia else 0
+                        Etapa.objects.create(id_etapa=id_etapa, nombre_etapa=nombre_etapa, secuencia=sec)
+                        messages.success(request, f'Etapa "{nombre_etapa}" registrada exitosamente.')
+                    except ValueError:
+                        messages.error(request, 'La secuencia debe ser un numero entero.')
+            else:
+                messages.error(request, 'El ID y nombre de la etapa son obligatorios.')
+            return redirect('core:configuracion')
+        elif form_type == 'lotes':
+            lotes_ids = request.POST.getlist('lotes[]')
+            cantidades = request.POST.getlist('cantidades[]')
+            modelo_id = request.POST.get('modelo_id', '')
+            if modelo_id:
+                try:
+                    modelo = Modelo.objects.get(id_modelo=modelo_id)
+                    creados = 0
+                    for i, lote_id in enumerate(lotes_ids):
+                        if lote_id.strip() and i < len(cantidades):
+                            try:
+                                cant = int(cantidades[i])
+                                LoteProduccion.objects.create(id_lote=lote_id.strip(), cant_solicitada=cant, id_modelo=modelo)
+                                creados += 1
+                            except ValueError:
+                                pass
+                    messages.success(request, f'{creados} lotes registrados para modelo {modelo.nombre}.')
+                except Modelo.DoesNotExist:
+                    messages.error(request, 'Modelo no encontrado.')
+            return redirect('core:configuracion')
+        elif form_type == 'maquinaria':
+            form = MaquinariaForm(request.POST)
+            if form.is_valid():
+                form.save()
+                messages.success(request, f'Maquina "{form.instance.id_maquina}" registrada exitosamente.')
+            else:
+                for field, errors in form.errors.items():
+                    for error in errors:
+                        messages.error(request, f'{field}: {error}')
+            return redirect('core:configuracion')
+        elif form_type == 'eliminar_etapa':
+            etapa_id = request.POST.get('etapa_id', '').strip()
+            if etapa_id:
+                try:
+                    etapa = Etapa.objects.get(id_etapa=etapa_id)
+                    tiene_maquinarias = Maquinaria.objects.filter(id_etapa=etapa).exists()
+                    tiene_usuarios = Usuario.objects.filter(etapa_asignada=etapa).exists()
+                    tiene_registros = RegistroEtapa.objects.filter(id_etapa=etapa).exists()
+                    tiene_incidentes = Incidente.objects.filter(id_etapa=etapa).exists()
+                    if tiene_maquinarias or tiene_usuarios or tiene_registros or tiene_incidentes:
+                        msgs = []
+                        if tiene_maquinarias:
+                            msgs.append('maquinarias asignadas')
+                        if tiene_usuarios:
+                            msgs.append('usuarios asignados')
+                        if tiene_registros:
+                            msgs.append('registros de produccion')
+                        if tiene_incidentes:
+                            msgs.append('incidentes relacionados')
+                        messages.error(
+                            request,
+                            f'No se puede eliminar la etapa "{etapa.nombre_etapa}" porque tiene: {", ".join(msgs)}.'
+                        )
+                    else:
+                        etapa.delete()
+                        messages.success(request, f'Etapa "{etapa.nombre_etapa}" eliminada exitosamente.')
+                except Etapa.DoesNotExist:
+                    messages.error(request, 'Etapa no encontrada.')
+            return redirect('core:configuracion')
+    contexto = {
+        'usuario': request.usuario_actual,
+        'modelos': datos['modelos'],
+        'materiales': datos['materiales'],
+        'etapas': datos['etapas'],
+        'maquinarias': datos['maquinarias'],
+        'lotes': datos['lotes'],
+        'maquinaria_form': MaquinariaForm(),
+    }
+    return render(request, 'configuracion/configuracion.html', contexto)
+
+
+# ============================================================
+# 3. VISTA: OPERARIO POR ETAPA
+# ============================================================
+@requiere_rol(ROL_OPERARIO)
+def operario_etapa_view(request, etapa_id):
+    usuario = request.usuario_actual
+    etapa = get_object_or_404(Etapa, id_etapa=etapa_id)
+    if usuario.etapa_asignada and usuario.etapa_asignada.id_etapa != etapa_id:
+        messages.error(request, 'No tiene permiso para acceder a esta etapa.')
+        return redirect('core:operario')
+    if request.method == 'POST':
+        accion = request.POST.get('accion', '')
+        lote_id = request.POST.get('lote_id', '').strip().upper()
+        if lote_id:
+            try:
+                lote = LoteProduccion.objects.get(id_lote__iexact=lote_id)
+                if accion == 'Entrada':
+                    RegistroEtapa.objects.create(
+                        hora_entrada=timezone.now(),
+                        id_lote=lote,
+                        id_etapa=etapa,
+                        id_usuario=usuario,
+                        estado_actual='EN_PROCESO'
+                    )
+                    messages.success(request, f'Entrada registrada: Lote {lote_id} en {etapa.nombre_etapa}.')
+                elif accion == 'Salida':
+                    registro = RegistroEtapa.objects.filter(
+                        id_lote=lote,
+                        id_etapa=etapa,
+                        hora_salida__isnull=True
+                    ).order_by('-hora_entrada').first()
+                    if registro:
+                        registro.hora_salida = timezone.now()
+                        delta = registro.hora_salida - registro.hora_entrada
+                        horas = int(delta.total_seconds() // 3600)
+                        minutos = int((delta.total_seconds() % 3600) // 60)
+                        registro.tiempo_total_etapa = f"{horas}h {minutos}m"
+                        maquina = Maquinaria.objects.filter(id_etapa=etapa).first()
+                        if maquina:
+                            minutos_totales = delta.total_seconds() / 60
+                            registro.consumo_energetico_kwh = calcular_consumo_energetico(minutos_totales, maquina)
+                        registro.estado_actual = 'COMPLETADO'
+                        registro.save()
+                        messages.success(request, f'Salida registrada: Lote {lote_id} de {etapa.nombre_etapa}.')
+                    else:
+                        messages.error(request, f'No se encontro entrada activa para el lote {lote_id}.')
+            except LoteProduccion.DoesNotExist:
+                messages.error(request, f'Lote {lote_id} no encontrado.')
+        return redirect('core:operario_etapa', etapa_id=etapa_id)
+    datos = obtener_datos_operario(etapa, usuario)
+    contexto = {
+        'usuario': usuario,
+        'etapa': etapa,
+        'etapa_actual': etapa.nombre_etapa,
+        'movimientos': datos['movimientos'],
+        'lotes_activos': datos['lotes_activos'],
+        'total_pares_hoy': datos['total_pares_hoy'],
+        'total_aprobados_hoy': datos['total_aprobados_hoy'],
+        'total_rechazados_hoy': datos['total_rechazados_hoy'],
+        'eficiencia_turno': datos['eficiencia_turno'],
+        'total_registros_hoy': datos['total_registros_hoy'],
+    }
+    return render(request, 'operario/operario.html', contexto)
+
+
+@requiere_rol(ROL_OPERARIO)
+def operario_redirect_view(request):
+    usuario = request.usuario_actual
+    if usuario.etapa_asignada:
+        return redirect('core:operario_etapa', etapa_id=usuario.etapa_asignada.id_etapa)
+    etapas = Etapa.objects.all().order_by('secuencia')
+    return render(request, 'operario/seleccionar_etapa.html', {'usuario': usuario, 'etapas': etapas})
+
+
+# ============================================================
+# 4. VISTA: CONTROL DE CALIDAD
+# ============================================================
+def calidad_view(request):
+    usuario = get_usuario_sesion(request)
+    if not usuario:
+        messages.error(request, 'Debe iniciar sesion para acceder.')
+        return redirect('core:login')
+
+    if tiene_password_temporal(usuario.id_usuario):
+        return redirect('core:cambiar_password_temporal')
+
+    es_admin = usuario.is_staff
+    es_operario_calidad = (
+        usuario.rol == ROL_OPERARIO and
+        usuario.etapa_asignada and
+        usuario.etapa_asignada.nombre_etapa.lower() == 'calidad'
+    )
+    if not (es_admin or es_operario_calidad):
+        return render(request, 'errors/403.html', status=403)
+    request.usuario_actual = usuario
+    if request.method == 'POST':
+        lote_id = request.POST.get('lote_id', '').strip()
+        pares_aprobados = request.POST.get('pares_aprobados', '0')
+        pares_rechazados = request.POST.get('pares_rechazados', '0')
+        if lote_id:
+            try:
+                lote = LoteProduccion.objects.get(id_lote__iexact=lote_id)
+                etapa_calidad = Etapa.objects.filter(nombre_etapa__iexact='Calidad').first()
+                if not etapa_calidad:
+                    etapa_calidad = Etapa.objects.create(id_etapa='ETP-CALIDAD', nombre_etapa='Calidad', secuencia=99)
+                registro, created = RegistroEtapa.objects.get_or_create(
+                    id_lote=lote,
+                    id_etapa=etapa_calidad,
+                    defaults={'hora_entrada': timezone.now(), 'id_usuario': request.usuario_actual, 'estado_actual': 'EN_PROCESO'}
+                )
+                registro.pares_aprobados = int(pares_aprobados) if pares_aprobados else 0
+                registro.pares_rechazados = int(pares_rechazados) if pares_rechazados else 0
+                registro.hora_salida = timezone.now()
+                registro.estado_actual = 'COMPLETADO'
+                registro.save()
+                if registro.pares_rechazados > registro.pares_aprobados:
+                    lote.estado_actual = 'RECHAZADO'
+                else:
+                    lote.estado_actual = 'APROBADO'
+                lote.save()
+                messages.success(request, f'Inspeccion de calidad registrada para lote {lote_id}.')
+            except LoteProduccion.DoesNotExist:
+                messages.error(request, f'Lote {lote_id} no encontrado.')
+            except ValueError:
+                messages.error(request, 'Valores numericos invalidos.')
+        return redirect('core:calidad')
+    datos = obtener_datos_calidad()
+    contexto = {
+        'usuario': request.usuario_actual,
+        'lotes': datos['lotes'],
+        'total_auditados': datos['total_auditados'],
+        'total_aprobados': datos['total_aprobados'],
+        'total_rechazados': datos['total_rechazados'],
+        'tasa_calidad': datos['tasa_calidad'],
+    }
+    return render(request, 'calidad/calidad.html', contexto)
+
+
+# ============================================================
+# 5. VISTA: CATALOGO DE MODELOS
+# ============================================================
+@requiere_rol(ROL_GERENTE, ROL_SUBGERENTE)
+def catalogo_modelos_view(request):
+    form_busqueda = BusquedaModeloForm(request.GET or None)
+    termino_busqueda = ''
+    if form_busqueda.is_valid():
+        termino_busqueda = form_busqueda.cleaned_data.get('q', '')
+    if termino_busqueda:
+        modelos = Modelo.objects.filter(
+            Q(id_modelo__icontains=termino_busqueda) |
+            Q(nombre__icontains=termino_busqueda)
+        ).order_by('-fecha_registro')
+    else:
+        modelos = Modelo.objects.all().order_by('-fecha_registro')
+    modelos_data = []
+    for modelo in modelos:
+        modelos_data.append({
+            'modelo': modelo,
+            'imagen_url': get_imagen_modelo_url(modelo.id_modelo),
+        })
+    total_modelos = Modelo.objects.count()
+    contexto = {
+        'usuario': request.usuario_actual,
+        'modelos_data': modelos_data,
+        'form_busqueda': form_busqueda,
+        'termino_busqueda': termino_busqueda,
+        'total_modelos': total_modelos,
+    }
+    return render(request, 'catalogo/catalogo_modelos.html', contexto)
+
+
+@requiere_rol(ROL_GERENTE, ROL_SUBGERENTE)
+def registrar_modelo_view(request):
+    if request.method == 'POST':
+        form = ModeloCalzadoForm(request.POST, request.FILES)
+        if form.is_valid():
+            modelo = form.save(commit=False)
+            modelo.id_modelo = f"MOD-{timezone.now().strftime('%Y%m%d')}-{Modelo.objects.count() + 1:03d}"
+            modelo.save()
+            if 'imagen' in request.FILES:
+                guardar_imagen_modelo(modelo.id_modelo, request.FILES['imagen'])
+            messages.success(request, f'Modelo "{modelo.nombre}" registrado exitosamente.')
+            return redirect('core:catalogo_modelos')
+        else:
+            messages.error(request, 'Por favor corrija los errores del formulario.')
+    else:
+        form = ModeloCalzadoForm()
+    contexto = {
+        'usuario': request.usuario_actual,
+        'form': form,
+        'titulo': 'Registrar Nuevo Modelo',
+        'modo': 'crear',
+    }
+    return render(request, 'catalogo/registrar_modelo.html', contexto)
+
+
+@requiere_rol(ROL_GERENTE, ROL_SUBGERENTE)
+def editar_modelo_view(request, pk):
+    modelo = get_object_or_404(Modelo, pk=pk)
+    if request.method == 'POST':
+        form = ModeloCalzadoForm(request.POST, request.FILES, instance=modelo)
+        if form.is_valid():
+            form.save()
+            if request.POST.get('eliminar_imagen'):
+                if eliminar_imagen_modelo(modelo.id_modelo):
+                    messages.info(request, 'Imagen eliminada.')
+            elif 'imagen' in request.FILES:
+                guardar_imagen_modelo(modelo.id_modelo, request.FILES['imagen'])
+            messages.success(request, f'Modelo "{modelo.nombre}" actualizado correctamente.')
+            return redirect('core:catalogo_modelos')
+        else:
+            messages.error(request, 'Por favor corrija los errores.')
+    else:
+        form = ModeloCalzadoForm(instance=modelo)
+    contexto = {
+        'usuario': request.usuario_actual,
+        'form': form,
+        'modelo': modelo,
+        'titulo': f'Editar Modelo: {modelo.id_modelo}',
+        'modo': 'editar',
+        'imagen_url': get_imagen_modelo_url(modelo.id_modelo),
+    }
+    return render(request, 'catalogo/registrar_modelo.html', contexto)
+
+
+@requiere_rol(ROL_GERENTE, ROL_SUBGERENTE)
+def detalle_modelo_view(request, pk):
+    modelo = get_object_or_404(Modelo, pk=pk)
+    materiales = MaterialModelo.objects.filter(id_modelo=modelo).select_related('id_material')
+    incidentes = Incidente.objects.filter(id_lote__id_modelo=modelo).order_by('-fecha_reporte')[:10]
+    contexto = {
+        'usuario': request.usuario_actual,
+        'modelo': modelo,
+        'materiales': materiales,
+        'incidentes_relacionados': incidentes,
+        'imagen_url': get_imagen_modelo_url(modelo.id_modelo),
+    }
+    return render(request, 'catalogo/detalle_modelo.html', contexto)
+
+
+# ============================================================
+# 6. VISTA: REPORTAR INCIDENTE
+# ============================================================
+@requiere_rol(ROL_OPERARIO, ROL_GERENTE, ROL_SUBGERENTE, ROL_DIRECTOR_PRODUCCION, ROL_DIRECTOR_DESPACHO)
+def reportar_incidente_view(request):
+    if request.method == 'POST':
+        form = IncidenteForm(request.POST)
+        if form.is_valid():
+            incidente = form.save(commit=False)
+            incidente.id_usuario_reporta = request.usuario_actual
+            incidente.estado = 'PENDIENTE'
+            incidente.save()
+            messages.success(request, 'Incidente reportado exitosamente.')
+            return redirect('core:reportar_incidente')
+        else:
+            messages.error(request, 'Por favor corrija los errores del formulario.')
+    else:
+        form = IncidenteForm()
+    mis_incidentes = Incidente.objects.filter(id_usuario_reporta=request.usuario_actual).order_by('-fecha_reporte')[:5]
+    contexto = {
+        'usuario': request.usuario_actual,
+        'form': form,
+        'mis_incidentes': mis_incidentes,
+        'estado_colores': {
+            'PENDIENTE': '#ef4444',
+            'EN_PROCESO': '#f59e0b',
+            'RESUELTO': '#10b981',
+            'ESCALADO': '#8b5cf6',
+        },
+    }
+    return render(request, 'incidentes/reportar_incidente.html', contexto)
+
+
+# ============================================================
+# 7. VISTA: HISTORIAL DE INCIDENTES
+# ============================================================
+@requiere_rol(ROL_GERENTE, ROL_SUBGERENTE)
+def historial_incidentes_view(request):
+    filtro_etapa = request.GET.get('etapa', '')
+    filtro_estado = request.GET.get('estado', '')
+    incidentes = Incidente.objects.select_related('id_usuario_reporta', 'id_etapa', 'id_lote')
+    if filtro_etapa:
+        incidentes = incidentes.filter(id_etapa__id_etapa=filtro_etapa)
+    if filtro_estado:
+        incidentes = incidentes.filter(estado=filtro_estado)
+    incidentes = incidentes.order_by('-fecha_reporte')
+    stats = {
+        'total': incidentes.count(),
+        'pendientes': incidentes.filter(estado='PENDIENTE').count(),
+        'en_proceso': incidentes.filter(estado='EN_PROCESO').count(),
+        'resueltos': incidentes.filter(estado='RESUELTO').count(),
+        'escalados': incidentes.filter(estado='ESCALADO').count(),
+    }
+    if request.method == 'POST':
+        incidente_id = request.POST.get('incidente_id')
+        if incidente_id:
+            incidente = get_object_or_404(Incidente, pk=incidente_id)
+            form_update = ActualizarIncidenteForm(request.POST, instance=incidente)
+            if form_update.is_valid():
+                instancia = form_update.save(commit=False)
+                if instancia.estado == 'RESUELTO':
+                    instancia.fecha_resolucion = timezone.now()
+                instancia.save()
+                messages.success(request, 'Estado del incidente actualizado.')
+                return redirect('core:historial_incidentes')
+    contexto = {
+        'usuario': request.usuario_actual,
+        'incidentes': incidentes,
+        'stats': stats,
+        'filtro_etapa': filtro_etapa,
+        'filtro_estado': filtro_estado,
+        'etapas': Etapa.objects.all(),
+        'estados': ESTADO_INCIDENTE_CHOICES,
+        'form_update': ActualizarIncidenteForm(),
+    }
+    return render(request, 'incidentes/historial_incidentes.html', contexto)
+
+
+# ============================================================
+# 8. VISTA: ACCESO DENEGADO (403)
+# ============================================================
+def error_403_view(request, exception=None):
+    return render(request, 'errors/403.html', status=403)
+
+
+# ============================================================
+# 9. API: ACTUALIZAR ESTADO DE INCIDENTE
+# ============================================================
+@requiere_rol(ROL_GERENTE, ROL_SUBGERENTE)
+@require_http_methods(["POST"])
+def api_actualizar_incidente(request, pk):
+    try:
+        incidente = get_object_or_404(Incidente, pk=pk)
+        nuevo_estado = request.POST.get('estado')
+        notas = request.POST.get('acciones_tomadas', '').strip()
+        if nuevo_estado not in ['PENDIENTE', 'EN_PROCESO', 'RESUELTO', 'ESCALADO']:
+            return JsonResponse({'success': False, 'message': 'Estado no valido.'}, status=400)
+        incidente.estado = nuevo_estado
+        if notas:
+            from django.utils.html import strip_tags, escape
+            incidente.acciones_tomadas = escape(strip_tags(notas))
+        if nuevo_estado == 'RESUELTO':
+            incidente.fecha_resolucion = timezone.now()
+        incidente.save()
+        return JsonResponse({
+            'success': True,
+            'message': 'Incidente actualizado correctamente.',
+            'estado': incidente.get_estado_display(),
+            'estado_codigo': incidente.estado,
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Error: {str(e)}'}, status=500)
+
+
+# ============================================================
+# VISTA: PANEL DE ADMINISTRACION
+# ============================================================
+def panel_admin_view(request):
+    usuario = get_usuario_sesion(request)
+    if not usuario:
+        messages.error(request, 'Debe iniciar sesion para acceder.')
+        return redirect('core:login')
+    if not usuario.is_staff:
+        messages.error(request, 'No tiene permisos para acceder al panel de administracion.')
+        return render(request, 'errors/403.html', status=403)
+
+    if tiene_password_temporal(usuario.id_usuario):
+        return redirect('core:cambiar_password_temporal')
+
+    request.usuario_actual = usuario
+    total_usuarios = Usuario.objects.count()
+    total_operarios = Usuario.objects.filter(rol=ROL_OPERARIO).count()
+    total_gerentes = Usuario.objects.filter(rol__in=[ROL_GERENTE, ROL_SUBGERENTE]).count()
+    total_directores = Usuario.objects.filter(rol__in=[ROL_DIRECTOR_PRODUCCION, ROL_DIRECTOR_DESPACHO]).count()
+    total_etapas = Etapa.objects.count()
+    total_maquinas = Maquinaria.objects.count()
+    total_modelos = Modelo.objects.count()
+    total_lotes = LoteProduccion.objects.count()
+    total_materiales = Material.objects.count()
+    total_incidentes = Incidente.objects.count()
+    incidentes_pendientes = Incidente.objects.filter(estado='PENDIENTE').count()
+    incidentes_resueltos = Incidente.objects.filter(estado='RESUELTO').count()
+    total_registros = RegistroEtapa.objects.count()
+    registros_hoy = RegistroEtapa.objects.filter(hora_entrada__date=timezone.now().date()).count()
+    usuarios_recientes = Usuario.objects.order_by('-fecha_registro')[:10]
+    incidentes_recientes = Incidente.objects.select_related('id_usuario_reporta', 'id_etapa').order_by('-fecha_reporte')[:10]
+    modelos_recientes = Modelo.objects.order_by('-fecha_registro')[:10]
+    lotes_recientes = LoteProduccion.objects.select_related('id_modelo').order_by('-fecha_creacion')[:10]
+    registros_recientes = RegistroEtapa.objects.select_related('id_lote', 'id_etapa', 'id_usuario').order_by('-hora_entrada')[:10]
+    hoy = timezone.now().date()
+    incidentes_hoy = Incidente.objects.filter(fecha_reporte__date=hoy).count()
+    etapas_con_datos = []
+    for etapa in Etapa.objects.all().order_by('secuencia'):
+        operarios_count = Usuario.objects.filter(etapa_asignada=etapa).count()
+        maquinas_count = Maquinaria.objects.filter(id_etapa=etapa).count()
+        etapas_con_datos.append({'etapa': etapa, 'operarios': operarios_count, 'maquinas': maquinas_count})
+    contexto = {
+        'usuario': request.usuario_actual,
+        'total_usuarios': total_usuarios,
+        'total_operarios': total_operarios,
+        'total_gerentes': total_gerentes,
+        'total_directores': total_directores,
+        'total_etapas': total_etapas,
+        'total_maquinas': total_maquinas,
+        'total_modelos': total_modelos,
+        'total_lotes': total_lotes,
+        'total_materiales': total_materiales,
+        'total_incidentes': total_incidentes,
+        'incidentes_pendientes': incidentes_pendientes,
+        'incidentes_resueltos': incidentes_resueltos,
+        'total_registros': total_registros,
+        'registros_hoy': registros_hoy,
+        'incidentes_hoy': incidentes_hoy,
+        'usuarios_recientes': usuarios_recientes,
+        'incidentes_recientes': incidentes_recientes,
+        'modelos_recientes': modelos_recientes,
+        'lotes_recientes': lotes_recientes,
+        'registros_recientes': registros_recientes,
+        'etapas_con_datos': etapas_con_datos,
+    }
+    return render(request, 'admin/panel_admin.html', contexto)
+
+
+# ============================================================
+# VISTA: GESTIONAR USUARIOS (Admin)
+# ============================================================
+def admin_usuarios_view(request):
+    usuario = get_usuario_sesion(request)
+    if not usuario:
+        messages.error(request, 'Debe iniciar sesion para acceder.')
+        return redirect('core:login')
+    if not usuario.is_staff:
+        messages.error(request, 'No tiene permisos para acceder.')
+        return render(request, 'errors/403.html', status=403)
+
+    if tiene_password_temporal(usuario.id_usuario):
+        return redirect('core:cambiar_password_temporal')
+
+    request.usuario_actual = usuario
+    if request.method == 'POST':
+        accion = request.POST.get('accion', '')
+        usuario_id = request.POST.get('usuario_id', '')
+        if accion == 'eliminar' and usuario_id:
+            try:
+                user = Usuario.objects.get(id_usuario=usuario_id)
+                if not user.is_staff:
+                    user.delete()
+                    quitar_password_temporal(usuario_id)
+                    messages.success(request, f'Usuario {usuario_id} eliminado.')
+                else:
+                    messages.error(request, 'No puede eliminar un administrador.')
+            except Usuario.DoesNotExist:
+                messages.error(request, 'Usuario no encontrado.')
+        elif accion == 'activar' and usuario_id:
+            try:
+                user = Usuario.objects.get(id_usuario=usuario_id)
+                user.is_active = True
+                user.save()
+                messages.success(request, f'Usuario {usuario_id} activado.')
+            except Usuario.DoesNotExist:
+                messages.error(request, 'Usuario no encontrado.')
+        elif accion == 'desactivar' and usuario_id:
+            try:
+                user = Usuario.objects.get(id_usuario=usuario_id)
+                if not user.is_staff:
+                    user.is_active = False
+                    user.save()
+                    messages.success(request, f'Usuario {usuario_id} desactivado.')
+                else:
+                    messages.error(request, 'No puede desactivar un administrador.')
+            except Usuario.DoesNotExist:
+                messages.error(request, 'Usuario no encontrado.')
+        elif accion == 'cambiar_password' and usuario_id:
+            nueva_password = request.POST.get('nueva_password', '').strip()
+            confirmar_password = request.POST.get('confirmar_password', '').strip()
+            if not nueva_password:
+                messages.error(request, 'Debe ingresar una nueva contraseña.')
+            elif len(nueva_password) < 4:
+                messages.error(request, 'La contraseña debe tener al menos 4 caracteres.')
+            elif nueva_password != confirmar_password:
+                messages.error(request, 'Las contraseñas no coinciden. Por favor verifique.')
+            else:
+                try:
+                    user = Usuario.objects.get(id_usuario=usuario_id)
+                    user.set_password(nueva_password)
+                    user.save()
+                    marcar_password_temporal(usuario_id)
+                    messages.success(
+                        request,
+                        f'Contraseña temporal asignada a {usuario_id}. '
+                        f'El usuario deberá cambiarla al iniciar sesión.'
+                    )
+                except Usuario.DoesNotExist:
+                    messages.error(request, 'Usuario no encontrado.')
+            return redirect('core:admin_usuarios')
+        return redirect('core:admin_usuarios')
+    rol_filtro = request.GET.get('rol', '')
+    estado_filtro = request.GET.get('estado', '')
+    usuarios = Usuario.objects.all().order_by('-fecha_registro')
+    if rol_filtro:
+        usuarios = usuarios.filter(rol=rol_filtro)
+    if estado_filtro == 'activo':
+        usuarios = usuarios.filter(is_active=True)
+    elif estado_filtro == 'inactivo':
+        usuarios = usuarios.filter(is_active=False)
+    contexto = {
+        'usuario': request.usuario_actual,
+        'usuarios': usuarios,
+        'roles': ROLES_CHOICES,
+        'rol_filtro': rol_filtro,
+        'estado_filtro': estado_filtro,
+        'total_usuarios': usuarios.count(),
+    }
+    return render(request, 'admin/admin_usuarios.html', contexto)
+
+
+# ============================================================
+# 10. VISTA: REGISTRO DE NUEVO USUARIO
+# ============================================================
+def registro_view(request):
+    usuario_actual = get_usuario_sesion(request)
+    es_admin = usuario_actual and usuario_actual.is_staff
+
+    if usuario_actual and tiene_password_temporal(usuario_actual.id_usuario):
+        return redirect('core:cambiar_password_temporal')
+
+    if request.method == 'POST':
+        form = RegistroUsuarioForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            if es_admin:
+                marcar_password_temporal(user.id_usuario)
+                messages.success(
+                    request,
+                    f'Usuario "{user.id_usuario}" registrado con contraseña temporal.'
+                )
+                messages.info(request, 'El usuario deberá cambiarla al iniciar sesión.')
+                return redirect('core:admin_usuarios')
+            else:
+                messages.success(
+                    request,
+                    f'Usuario "{user.id_usuario}" registrado exitosamente. Ahora puede iniciar sesion.'
+                )
+                return redirect('core:login')
+        else:
+            messages.error(request, 'Por favor corrija los errores del formulario.')
+    else:
+        form = RegistroUsuarioForm()
+    contexto = {
+        'form': form,
+        'titulo': 'Registro de Usuario',
+        'es_admin': es_admin,
+    }
+    return render(request, 'registration/registro.html', contexto)
+
+
+# ============================================================
+# VISTA: TRAZABILIDAD DE LOTES
+# ============================================================
+@requiere_rol(ROL_DIRECTOR_PRODUCCION)
+def trazabilidad_view(request):
+    etapas = Etapa.objects.all().order_by('secuencia')
+
+    lotes_en_proceso = LoteProduccion.objects.exclude(
+        estado_actual__in=['COMPLETADO', 'APROBADO', 'RECHAZADO']
+    ).select_related('id_modelo').order_by('-fecha_creacion')
+
+    lote_seleccionado = None
+    etapa_actual = None
+    progreso = []
+    registros_lote = []
+
+    lote_id = request.GET.get('lote')
+    if lote_id:
+        lote_seleccionado = get_object_or_404(LoteProduccion, pk=lote_id)
+
+        registros_lote = RegistroEtapa.objects.filter(
+            id_lote=lote_seleccionado
+        ).select_related('id_etapa', 'id_usuario').order_by('hora_entrada')
+
+        registro_actual = registros_lote.filter(estado_actual='EN_PROCESO').first()
+        if registro_actual:
+            etapa_actual = registro_actual.id_etapa
+
+        for etapa in etapas:
+            reg = registros_lote.filter(id_etapa=etapa).first()
+            if reg:
+                if reg.estado_actual == 'COMPLETADO':
+                    estado = 'completado'
+                elif reg.estado_actual == 'EN_PROCESO':
+                    estado = 'actual'
+                else:
+                    estado = 'pendiente'
+            else:
+                estado = 'pendiente'
+
+            progreso.append({
+                'etapa': etapa,
+                'estado': estado,
+                'registro': reg,
+            })
+
+    contexto = {
+        'usuario': request.usuario_actual,
+        'etapas': etapas,
+        'lotes_en_proceso': lotes_en_proceso,
+        'lote_seleccionado': lote_seleccionado,
+        'etapa_actual': etapa_actual,
+        'progreso': progreso,
+        'registros_lote': registros_lote,
+    }
+    return render(request, 'trazabilidad/trazabilidad.html', contexto)
+
+
+# ============================================================
+# VISTAS DE REPORTES PDF
+# ============================================================
+from .reportes_pdf import (
+    generar_reporte_usuarios,
+    generar_reporte_modelos,
+    generar_reporte_lotes,
+    generar_reporte_incidentes,
+    generar_reporte_materiales,
+    generar_reporte_etapas,
+)
+
+
+@requiere_rol(ROL_GERENTE, ROL_SUBGERENTE)
+def panel_reportes_view(request):
+    return render(request, 'reportes/panel_reportes.html', {'usuario': request.usuario_actual})
+
+
+@requiere_rol(ROL_GERENTE, ROL_SUBGERENTE)
+def reporte_usuarios_pdf(request):
+    rol = request.GET.get('rol', '')
+    estado = request.GET.get('estado', '')
+    return generar_reporte_usuarios(request, rol_filtro=rol or None, estado_filtro=estado or None)
+
+
+@requiere_rol(ROL_GERENTE, ROL_SUBGERENTE)
+def reporte_modelos_pdf(request):
+    return generar_reporte_modelos(request)
+
+
+@requiere_rol(ROL_GERENTE, ROL_SUBGERENTE)
+def reporte_lotes_pdf(request):
+    estado = request.GET.get('estado', '')
+    return generar_reporte_lotes(request, estado=estado or None)
+
+
+@requiere_rol(ROL_GERENTE, ROL_SUBGERENTE)
+def reporte_incidentes_pdf(request):
+    estado = request.GET.get('estado', '')
+    fecha_desde = request.GET.get('fecha_desde', '')
+    fecha_hasta = request.GET.get('fecha_hasta', '')
+    return generar_reporte_incidentes(
+        request,
+        estado=estado or None,
+        fecha_desde=fecha_desde or None,
+        fecha_hasta=fecha_hasta or None
+    )
+
+
+@requiere_rol(ROL_GERENTE, ROL_SUBGERENTE)
+def reporte_materiales_pdf(request):
+    return generar_reporte_materiales(request)
+
+
+@requiere_rol(ROL_GERENTE, ROL_SUBGERENTE)
+def reporte_etapas_pdf(request):
+    return generar_reporte_etapas(request)
+'''
+
+
+# ============================================================
+# CONTENIDO: core/urls.py
+# ============================================================
+CONTENIDO_URLS = r'''# -*- coding: utf-8 -*-
+"""
+urls.py - Enrutamiento del Sistema de Gestion de Produccion
+Manufacturera de Calzado 3-JJJ-A
+
+Django 4.2 compatible - Windows 7
+"""
+
+from django.urls import path
+from . import views
+
+app_name = 'core'
+
+urlpatterns = [
+    # ============================================================
+    # AUTENTICACION
+    # ============================================================
+    path('login/', views.login_view, name='login'),
+    path('logout/', views.logout_view, name='logout'),
+    path('registro/', views.registro_view, name='registro'),
+    path('redirect/', views.redirect_por_rol, name='redirect_por_rol'),
+    path('cambiar-password-temporal/', views.cambiar_password_temporal_view,
+         name='cambiar_password_temporal'),
+
+    # ============================================================
+    # DASHBOARD
+    # ============================================================
+    path('', views.dashboard_view, name='dashboard'),
+    path('dashboard/', views.dashboard_view, name='dashboard_alt'),
+    path('produccion/', views.dashboard_view, name='produccion'),
+
+    # ============================================================
+    # CONFIGURACION
+    # ============================================================
+    path('configuracion/', views.configuracion_view, name='configuracion'),
+
+    # ============================================================
+    # OPERARIO
+    # ============================================================
+    path('operario/', views.operario_redirect_view, name='operario'),
+    path('operario/<str:etapa_id>/', views.operario_etapa_view, name='operario_etapa'),
+
+    # ============================================================
+    # CALIDAD
+    # ============================================================
+    path('calidad/', views.calidad_view, name='calidad'),
+
+    # ============================================================
+    # INCIDENTES
+    # ============================================================
+    path('incidentes/reportar/', views.reportar_incidente_view, name='reportar_incidente'),
+    path('incidentes/historial/', views.historial_incidentes_view, name='historial_incidentes'),
+    path('incidentes/api/actualizar/<int:pk>/', views.api_actualizar_incidente, name='api_actualizar_incidente'),
+
+    # ============================================================
+    # CATALOGO
+    # ============================================================
+    path('catalogo/', views.catalogo_modelos_view, name='catalogo_modelos'),
+    path('catalogo/registrar/', views.registrar_modelo_view, name='registrar_modelo'),
+    path('catalogo/editar/<str:pk>/', views.editar_modelo_view, name='editar_modelo'),
+    path('catalogo/detalle/<str:pk>/', views.detalle_modelo_view, name='detalle_modelo'),
+
+    # ============================================================
+    # TRAZABILIDAD
+    # ============================================================
+    path('trazabilidad/', views.trazabilidad_view, name='trazabilidad'),
+
+    # ============================================================
+    # PANEL ADMIN
+    # ============================================================
+    path('panel-admin/', views.panel_admin_view, name='panel_admin'),
+    path('panel-admin/usuarios/', views.admin_usuarios_view, name='admin_usuarios'),
+
+    # ============================================================
+    # REPORTES PDF
+    # ============================================================
+    path('reportes/', views.panel_reportes_view, name='panel_reportes'),
+    path('reportes/usuarios/', views.reporte_usuarios_pdf, name='reporte_usuarios_pdf'),
+    path('reportes/modelos/', views.reporte_modelos_pdf, name='reporte_modelos_pdf'),
+    path('reportes/lotes/', views.reporte_lotes_pdf, name='reporte_lotes_pdf'),
+    path('reportes/incidentes/', views.reporte_incidentes_pdf, name='reporte_incidentes_pdf'),
+    path('reportes/materiales/', views.reporte_materiales_pdf, name='reporte_materiales_pdf'),
+    path('reportes/etapas/', views.reporte_etapas_pdf, name='reporte_etapas_pdf'),
+
+    # ============================================================
+    # ERRORES
+    # ============================================================
+    path('403/', views.error_403_view, name='error_403'),
+]
+'''
+
+
+# ============================================================
+# CONTENIDO A AGREGAR: core/forms.py (se anexa al final)
+# ============================================================
+CONTENIDO_FORMS_ADD = r'''
+
+# ============================================================
+# FORM: CAMBIO DE CONTRASEÑA TEMPORAL
+# ============================================================
+class CambiarPasswordTemporalForm(forms.Form):
+    password1 = forms.CharField(
+        label='Nueva Contraseña',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control-dark',
+            'placeholder': 'Mínimo 4 caracteres',
+            'id': 'id_password1',
+            'minlength': '4',
+            'maxlength': '50',
+            'autocomplete': 'new-password',
+        }),
+        min_length=4,
+        max_length=50,
+    )
+    password2 = forms.CharField(
+        label='Confirmar Contraseña',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control-dark',
+            'placeholder': 'Repita la contraseña',
+            'id': 'id_password2',
+            'minlength': '4',
+            'maxlength': '50',
+            'autocomplete': 'new-password',
+        }),
+        min_length=4,
+        max_length=50,
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        p1 = cleaned.get('password1')
+        p2 = cleaned.get('password2')
+        if p1 and p2 and p1 != p2:
+            raise forms.ValidationError('Las contraseñas no coinciden.')
+        if p1 and p1.isdigit():
+            raise forms.ValidationError('La contraseña no puede ser completamente numérica.')
+        return cleaned
+'''
+
+
+# ============================================================
+# CONTENIDO: templates/registration/cambiar_password_temporal.html
+# ============================================================
+CONTENIDO_TEMPLATE = r'''{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cambiar Contraseña - 3-JJJ-A</title>
+    <link rel="stylesheet" href="{% static 'css/3jjja-icons-mask.css' %}">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            height: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+        .page-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100vh;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            position: relative;
+        }
+        .page-wrapper::before {
+            content: '';
+            position: absolute;
+            top: 50%; left: 0;
+            width: 100%; height: 50%;
+            background: linear-gradient(180deg,
+                rgba(16,185,129,0.0) 0%,
+                rgba(16,185,129,0.05) 15%,
+                rgba(5,150,105,0.12) 40%,
+                rgba(4,120,87,0.20) 65%,
+                rgba(6,78,59,0.28) 100%);
+            pointer-events: none;
+        }
+        .login-card {
+            position: relative;
+            width: 100%;
+            max-width: 420px;
+            background: rgba(30, 41, 59, 0.95);
+            border: 1px solid rgba(16, 185, 129, 0.15);
+            border-radius: 24px;
+            padding: 40px 36px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.3),
+                        0 4px 12px rgba(0,0,0,0.15);
+            backdrop-filter: blur(10px);
+            z-index: 1;
+        }
+        .login-header { text-align: center; margin-bottom: 24px; }
+        .login-logo {
+            width: 60px; height: 60px;
+            margin: 0 auto 16px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 26px; color: white;
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.35);
+        }
+        .login-header h1 {
+            color: #f1f5f9;
+            font-size: 1.2rem;
+            margin: 0 0 6px 0;
+            font-weight: 700;
+        }
+        .login-header p {
+            color: #94a3b8;
+            font-size: 0.82rem;
+            margin: 0;
+        }
+        .info-box {
+            background: rgba(245, 158, 11, 0.12);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #fbbf24;
+            padding: 12px 14px;
+            border-radius: 12px;
+            font-size: 0.82rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+        .info-box i { font-size: 1.1rem; flex-shrink: 0; margin-top: 2px; }
+        .form-group { margin-bottom: 18px; }
+        .form-group label {
+            display: block;
+            color: #cbd5e1;
+            font-size: 0.78rem;
+            font-weight: 600;
+            margin-bottom: 7px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .form-control-dark {
+            width: 100%;
+            padding: 12px 44px 12px 16px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1.5px solid rgba(100, 116, 139, 0.3);
+            border-radius: 12px;
+            color: #f1f5f9;
+            font-size: 0.9rem;
+            transition: all 0.25s ease;
+        }
+        .form-control-dark:focus {
+            outline: none;
+            border-color: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+            background: rgba(15, 23, 42, 0.95);
+        }
+        .form-control-dark::placeholder { color: #64748b; }
+
+        .password-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+        .toggle-password-btn {
+            position: absolute;
+            right: 12px;
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 1.1rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            transition: color 0.2s ease;
+            z-index: 2;
+        }
+        .toggle-password-btn:hover { color: #10b981; }
+
+        .btn-login {
+            width: 100%;
+            padding: 13px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 8px;
+            letter-spacing: 0.5px;
+        }
+        .btn-login:hover {
+            background: linear-gradient(135deg, #059669, #047857);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
+        }
+        .messages-container { margin-bottom: 18px; }
+        .alert {
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .alert-success {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #34d399;
+        }
+        .alert-error, .alert-info {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171;
+        }
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #fbbf24;
+        }
+        .fade-in { animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-wrapper">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="login-logo">
+                    <i class="bi bi-shield-lock"></i>
+                </div>
+                <h1>Cambio de Contraseña Obligatorio</h1>
+                <p>Establezca una contraseña personal para continuar</p>
+            </div>
+
+            {% if messages %}
+            <div class="messages-container">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} fade-in">
+                    <i class="bi bi-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}x-circle{% elif message.tags == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %}"></i>
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="info-box">
+                <i class="bi bi-info-circle-fill"></i>
+                <div>
+                    Hola <strong>{{ usuario.nombre_completo }}</strong>, su contraseña actual
+                    fue asignada por el administrador como <em>temporal</em>.
+                    Por seguridad debe cambiarla antes de continuar.
+                </div>
+            </div>
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label for="id_password1">Nueva Contraseña</label>
+                    <div class="password-input-wrapper">
+                        {{ form.password1 }}
+                        <button type="button" class="toggle-password-btn"
+                                onclick="togglePass('id_password1', this)" aria-label="Ver contraseña">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="id_password2">Confirmar Contraseña</label>
+                    <div class="password-input-wrapper">
+                        {{ form.password2 }}
+                        <button type="button" class="toggle-password-btn"
+                                onclick="togglePass('id_password2', this)" aria-label="Ver contraseña">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-login">
+                    <i class="bi bi-check-circle"></i> Cambiar Contraseña
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function togglePass(id, btn) {
+            var input = document.getElementById(id);
+            var icon = btn.querySelector('i');
+            if (!input) return;
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'bi bi-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'bi bi-eye';
+            }
+        }
+    </script>
+</body>
+</html>
+'''
+
+
+# ============================================================
+# ESCRITURA SEGURA DE ARCHIVOS
+# ============================================================
+def escribir_archivo(ruta, contenido, descripcion):
+    """Escribe un archivo con respaldo previo."""
+    try:
+        ruta.parent.mkdir(parents=True, exist_ok=True)
+        respaldo = hacer_respaldo(ruta)
+        with open(ruta, "w", encoding="utf-8", newline="\n") as f:
+            f.write(contenido)
+        if respaldo:
+            print(_color_ok(f"{descripcion}  (respaldo: {respaldo.name})"))
+        else:
+            print(_color_ok(f"{descripcion}  (nuevo)"))
+        return True
+    except Exception as e:
+        print(_color_err(f"No se pudo escribir {descripcion}: {e}"))
+        return False
+
+
+def agregar_a_forms(ruta_forms):
+    """Agrega CambiarPasswordTemporalForm al final de forms.py si no existe."""
+    if not ruta_forms.exists():
+        print(_color_warn(f"No se encontró forms.py en {ruta_forms} — se omite."))
+        return False
+    try:
+        with open(ruta_forms, "r", encoding="utf-8") as f:
+            contenido = f.read()
+
+        if "CambiarPasswordTemporalForm" in contenido:
+            print(_color_info("forms.py ya contiene CambiarPasswordTemporalForm. Sin cambios."))
+            return True
+
+        respaldo = hacer_respaldo(ruta_forms)
+        with open(ruta_forms, "a", encoding="utf-8", newline="\n") as f:
+            f.write(CONTENIDO_FORMS_ADD)
+        if respaldo:
+            print(_color_ok(f"forms.py actualizado  (respaldo: {respaldo.name})"))
+        else:
+            print(_color_ok("forms.py actualizado"))
+        return True
+    except Exception as e:
+        print(_color_err(f"No se pudo actualizar forms.py: {e}"))
+        return False
+
+
+# ============================================================
+# MAIN
+# ============================================================
+def main():
+    print("=" * 60)
+    print("  INSTALADOR - SISTEMA DE CONTRASEÑA TEMPORAL")
+    print("  Manufacturera de Calzado 3-JJJ-A")
+    print("=" * 60)
+    print()
+
+    raiz = encontrar_raiz_proyecto()
+    if not raiz:
+        print(_color_err("No se encontró manage.py en la carpeta actual."))
+        print("       Ejecuta este script desde la raíz del proyecto Django.")
+        sys.exit(1)
+    print(_color_info(f"Raíz del proyecto: {raiz}"))
+
+    app = encontrar_app_core(raiz)
+    if not app:
+        print(_color_err("No se encontró la app 'core' con views.py y urls.py."))
+        sys.exit(1)
+    print(_color_info(f"App detectada:    {app.name}"))
+    print()
+
+    # 1) views.py
+    ok_views = escribir_archivo(app / "views.py", CONTENIDO_VIEWS, "core/views.py")
+
+    # 2) urls.py
+    ok_urls = escribir_archivo(app / "urls.py", CONTENIDO_URLS, "core/urls.py")
+
+    # 3) forms.py (append)
+    ok_forms = agregar_a_forms(app / "forms.py")
+
+    # 4) template
+    ruta_template = raiz / "templates" / "registration" / "cambiar_password_temporal.html"
+    # Si el proyecto usa una carpeta templates dentro de la app, probar ahí también
+    if not (raiz / "templates").exists() and (app / "templates").exists():
+        ruta_template = app / "templates" / "registration" / "cambiar_password_temporal.html"
+    ok_template = escribir_archivo(
+        ruta_template, CONTENIDO_TEMPLATE,
+        f"templates/registration/cambiar_password_temporal.html"
+    )
+
+    print()
+    print("=" * 60)
+    if ok_views and ok_urls and ok_forms and ok_template:
+        print(_color_ok("INSTALACIÓN COMPLETADA SIN ERRORES"))
+        print()
+        print("   Siguientes pasos:")
+        print("   1. Reinicia el servidor:")
+        print("        python manage.py runserver")
+        print()
+        print("   2. Prueba el flujo:")
+        print("        - Como admin, cambia la contraseña de un usuario")
+        print("          desde Panel Admin -> Gestionar Usuarios")
+        print("        - Cierra sesión y entra con ese usuario")
+        print("        - El sistema te pedirá crear una nueva contraseña")
+        print()
+        print("   IMPORTANTE:")
+        print("   - NO se tocó la base de datos (0 migraciones necesarias)")
+        print("   - Los archivos originales se respaldaron como .bak_FECHA")
+        print("   - El estado se guarda en media/sistema/password_temporal.json")
+    else:
+        print(_color_err("HUBO UNO O VARIOS ERRORES. Revisa el detalle arriba."))
+    print("=" * 60)
+
+
+if __name__ == "__main__":
+    main()
