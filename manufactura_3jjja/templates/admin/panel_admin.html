@@ -1,0 +1,218 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Panel de Administracion - 3-JJJ-A{% endblock %}
+
+{% block page_title %}Panel de Administracion{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <!-- Header -->
+    <div class="admin-header">
+        <div>
+            <h1><i class="bi bi-shield-lock"></i> Panel de Administracion</h1>
+            <p style="color: #94a3b8; margin: 4px 0 0 0; font-size: 0.85rem;">
+                Gestion completa del sistema | {{ usuario.nombre_completo }}
+            </p>
+        </div>
+        <div class="admin-badge">
+            <i class="bi bi-shield-check"></i> Administrador
+        </div>
+    </div>
+
+    <!-- Menu Rapido (solo 2 accesos principales) -->
+    <div class="admin-quick-actions">
+        <a href="{% url 'core:admin_usuarios' %}" class="admin-action-card admin-action-card-users">
+            <div class="admin-action-icon">
+                <i class="bi bi-people-fill"></i>
+            </div>
+            <div class="admin-action-body">
+                <span class="admin-action-title">Gestionar Usuarios</span>
+                <span class="admin-action-desc">Administra cuentas, roles, permisos y accesos del sistema</span>
+            </div>
+            <i class="bi bi-arrow-right admin-action-arrow"></i>
+        </a>
+
+        <a href="{% url 'core:panel_reportes' %}" class="admin-action-card admin-action-card-reports">
+            <div class="admin-action-icon">
+                <i class="bi bi-file-earmark-pdf-fill"></i>
+            </div>
+            <div class="admin-action-body">
+                <span class="admin-action-title">Reportes PDF</span>
+                <span class="admin-action-desc">Genera y descarga reportes de produccion, calidad e incidentes</span>
+            </div>
+            <i class="bi bi-arrow-right admin-action-arrow"></i>
+        </a>
+    </div>
+
+    <!-- Estadisticas Generales -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon blue"><i class="bi bi-people"></i></div>
+            <div class="stat-value">{{ total_usuarios }}</div>
+            <div class="stat-label">Usuarios Totales</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon green"><i class="bi bi-person-circle"></i></div>
+            <div class="stat-value">{{ total_operarios }}</div>
+            <div class="stat-label">Operarios</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon purple"><i class="bi bi-person-circle"></i></div>
+            <div class="stat-value">{{ total_gerentes }}</div>
+            <div class="stat-label">Gerentes</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon orange"><i class="bi bi-gear"></i></div>
+            <div class="stat-value">{{ total_directores }}</div>
+            <div class="stat-label">Directores</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon blue"><i class="bi bi-layers"></i></div>
+            <div class="stat-value">{{ total_etapas }}</div>
+            <div class="stat-label">Etapas</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon green"><i class="bi bi-cpu"></i></div>
+            <div class="stat-value">{{ total_maquinas }}</div>
+            <div class="stat-label">Maquinas</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon orange"><i class="bi bi-box-seam"></i></div>
+            <div class="stat-value">{{ total_modelos }}</div>
+            <div class="stat-label">Modelos</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon purple"><i class="bi bi-collection"></i></div>
+            <div class="stat-value">{{ total_lotes }}</div>
+            <div class="stat-label">Lotes</div>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <!-- Usuarios Recientes -->
+        <div class="card">
+            <h2><i class="bi bi-people"></i> Usuarios Recientes</h2>
+            <div style="overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Rol</th>
+                            <th>Estado</th>
+                            <th>Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in usuarios_recientes %}
+                        <tr>
+                            <td><strong>{{ u.id_usuario }}</strong><br><small style="color: #64748b;">{{ u.nombre_completo }}</small></td>
+                            <td>{{ u.get_rol_display }}</td>
+                            <td>
+                                {% if u.is_active %}
+                                    <span class="status-badge badge-activo">Activo</span>
+                                {% else %}
+                                    <span class="status-badge badge-inactivo">Inactivo</span>
+                                {% endif %}
+                                {% if u.is_staff %}
+                                    <span class="status-badge badge-admin">Admin</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ u.fecha_registro|date:"d/m/Y" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="empty-state">No hay usuarios registrados</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div style="text-align: right; margin-top: 12px;">
+                <a href="{% url 'core:admin_usuarios' %}" style="color: #10b981; text-decoration: none; font-size: 0.85rem;">
+                    Ver todos <i class="bi bi-box-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+
+        <!-- Incidentes Recientes -->
+        <div class="card">
+            <h2><i class="bi bi-exclamation-triangle"></i> Incidentes Recientes</h2>
+            <div style="overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Tipo</th>
+                            <th>Etapa</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inc in incidentes_recientes %}
+                        <tr>
+                            <td><strong>#{{ inc.id_incidente }}</strong></td>
+                            <td>{{ inc.get_tipo_incidente_display }}</td>
+                            <td>{{ inc.id_etapa.nombre_etapa|default:"N/A" }}</td>
+                            <td>
+                                <span class="status-badge badge-{{ inc.estado|lower }}">
+                                    {{ inc.get_estado_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="empty-state">No hay incidentes registrados</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div style="text-align: right; margin-top: 12px;">
+                <a href="{% url 'core:historial_incidentes' %}" style="color: #10b981; text-decoration: none; font-size: 0.85rem;">
+                    Ver todos <i class="bi bi-box-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actividad de Hoy -->
+    <div class="card" style="margin-top: 20px;">
+        <h2><i class="bi bi-lightning-charge"></i> Actividad de Hoy</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+            <div class="activity-item">
+                <div class="activity-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
+                    <i class="bi bi-clock-history"></i>
+                </div>
+                <div class="activity-text">
+                    <strong>{{ registros_hoy }}</strong>
+                    <span>Registros de produccion</span>
+                </div>
+            </div>
+            <div class="activity-item">
+                <div class="activity-icon" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">
+                    <i class="bi bi-exclamation-triangle"></i>
+                </div>
+                <div class="activity-text">
+                    <strong>{{ incidentes_hoy }}</strong>
+                    <span>Incidentes reportados</span>
+                </div>
+            </div>
+            <div class="activity-item">
+                <div class="activity-icon" style="background: rgba(14, 165, 233, 0.15); color: #0ea5e9;">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+                <div class="activity-text">
+                    <strong>{{ incidentes_resueltos }}</strong>
+                    <span>Incidentes resueltos (total)</span>
+                </div>
+            </div>
+            <div class="activity-item">
+                <div class="activity-icon" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">
+                    <i class="bi bi-clock-history"></i>
+                </div>
+                <div class="activity-text">
+                    <strong>{{ incidentes_pendientes }}</strong>
+                    <span>Incidentes pendientes</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

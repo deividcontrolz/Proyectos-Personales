@@ -1,0 +1,192 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard Gerencial - 3-JJJ-A{% endblock %}
+
+
+
+{% block page_title %}Dashboard Gerencial{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Header -->
+    <div class="dashboard-header">
+        <div>
+            <h1><i class="bi bi-speedometer2"></i> Dashboard Gerencial</h1>
+            <p style="color: #94a3b8; margin: 4px 0 0 0; font-size: 0.85rem;">
+                Manufacturera de Calzado 3-JJJ-A | {{ usuario.get_rol_display }}
+            </p>
+        </div>
+        <div class="user-info">
+            <i class="bi bi-person-circle"></i> {{ usuario.nombre_completo }}
+        </div>
+    </div>
+
+    <!-- KPIs Principales -->
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-icon green"><i class="bi bi-cpu"></i></div>
+            <div class="kpi-value">{{ oee.oee_global }}%</div>
+            <div class="kpi-label">OEE Global</div>
+            <div class="kpi-trend trend-up"><i class="bi bi-box-arrow-up"></i> Eficiencia general</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-icon blue"><i class="bi bi-box-seam"></i></div>
+            <div class="kpi-value">{{ total_lotes }}</div>
+            <div class="kpi-label">Lotes Activos</div>
+            <div class="kpi-trend trend-up"><i class="bi bi-box-arrow-up"></i> En produccion</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-icon orange"><i class="bi bi-exclamation-triangle"></i></div>
+            <div class="kpi-value">{{ incidentes_stats.total_activos }}</div>
+            <div class="kpi-label">Incidentes Activos</div>
+            <div class="kpi-trend trend-down"><i class="bi bi-box-arrow-in-down"></i> Requieren atencion</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-icon purple"><i class="bi bi-people"></i></div>
+            <div class="kpi-value">{{ total_operarios }}</div>
+            <div class="kpi-label">Operarios Activos</div>
+            <div class="kpi-trend trend-up"><i class="bi bi-box-arrow-up"></i> En planta</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-icon green"><i class="bi bi-check-circle"></i></div>
+            <div class="kpi-value">{{ oee.calidad }}%</div>
+            <div class="kpi-label">Calidad</div>
+            <div class="kpi-trend trend-up"><i class="bi bi-box-arrow-up"></i> Pares aprobados</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-icon red"><i class="bi bi-cpu"></i></div>
+            <div class="kpi-value">{{ total_kwh }} kWh</div>
+            <div class="kpi-label">Consumo Total</div>
+            <div class="kpi-trend trend-down"><i class="bi bi-box-arrow-in-down"></i> Energetico</div>
+        </div>
+    </div>
+
+    <!-- Graficos de KPIs Industriales -->
+    <div class="charts-grid">
+        <!-- OEE Gauge -->
+        <div class="chart-card">
+            <h3><i class="bi bi-speedometer2"></i> Eficiencia OEE Global</h3>
+            <div class="chart-container">
+                <canvas id="oeeChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Consumo Energetico -->
+        <div class="chart-card">
+            <h3><i class="bi bi-cpu"></i> Consumo Energetico por Etapa (kWh)</h3>
+            <div class="chart-container">
+                <canvas id="kwhChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Throughput -->
+        <div class="chart-card">
+            <h3><i class="bi bi-box-arrow-up"></i> Throughput por Etapa (pares/hora)</h3>
+            <div class="chart-container">
+                <canvas id="throughputChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Queue Time -->
+        <div class="chart-card">
+            <h3><i class="bi bi-clock-history"></i> Queue Time por Etapa (min)</h3>
+            <div class="chart-container">
+                <canvas id="queueChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Balanceo de Linea -->
+        <div class="chart-card full-width">
+            <h3><i class="bi bi-grid-3x3-gap"></i> Balanceo de Linea: Actual vs Teorico</h3>
+            <div class="chart-container">
+                <canvas id="balanceoChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Capacidad Real -->
+        <div class="chart-card">
+            <h3><i class="bi bi-cpu"></i> Capacidad Real vs Teorica</h3>
+            <div class="chart-container">
+                <canvas id="capacidadChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Tiempo Muerto -->
+        <div class="chart-card">
+            <h3><i class="bi bi-clock-history"></i> Tiempo Muerto por Dia (min)</h3>
+            <div class="chart-container">
+                <canvas id="tiempoMuertoChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Eficiencia por Area -->
+        <div class="chart-card">
+            <h3><i class="bi bi-gear"></i> Eficiencia por Area</h3>
+            <div class="chart-container">
+                <canvas id="eficienciaChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Calidad por Area -->
+        <div class="chart-card">
+            <h3><i class="bi bi-shield-check"></i> Calidad por Area</h3>
+            <div class="chart-container">
+                <canvas id="calidadChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Incidentes Activos -->
+    <div class="chart-card" style="margin-top: 24px;">
+        <h3 class="section-title"><i class="bi bi-exclamation-triangle"></i> Incidentes Activos</h3>
+        <div style="overflow-x: auto;">
+            <table class="incidents-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Tipo</th>
+                        <th>Severidad</th>
+                        <th>Etapa</th>
+                        <th>Reportado por</th>
+                        <th>Fecha</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inc in incidentes_activos %}
+                    <tr>
+                        <td>#{{ inc.id_incidente }}</td>
+                        <td>{{ inc.get_tipo_incidente_display }}</td>
+                        <td>
+                            <span class="severity-dot severity-{{ inc.severidad|lower }}"></span>
+                            {{ inc.get_severidad_display }}
+                        </td>
+                        <td>{{ inc.id_etapa.nombre_etapa|default:"N/A" }}</td>
+                        <td>{{ inc.id_usuario_reporta.nombre_completo }}</td>
+                        <td>{{ inc.fecha_reporte|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            <span class="status-badge badge-{{ inc.estado|lower }}">
+                                {{ inc.get_estado_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: #94a3b8; padding: 24px;">
+                            <i class="bi bi-check-circle" style="color: #059669; font-size: 1.5rem;"></i><br>
+                            No hay incidentes activos. Excelente!
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    {{ dashboard_data|json_script:"dashboard-data" }}
+
+    {% endblock %}

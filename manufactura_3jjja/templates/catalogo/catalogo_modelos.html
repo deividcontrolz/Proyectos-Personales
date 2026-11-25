@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Catalogo de Modelos - 3-JJJ-A{% endblock %}
+{% block page_title %}<i class="bi bi-box-seam"></i> Catalogo de <span>Modelos Registrados</span>{% endblock %}
+
+{% block content %}
+<!-- Barra de herramientas superior -->
+<div class="catalogo-toolbar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
+    <!-- Buscador -->
+    <form method="get" action="{% url 'core:catalogo_modelos' %}" style="display: flex; gap: 8px; flex: 1; max-width: 400px; align-items: stretch;">
+        <div class="search-box" style="position: relative; flex: 1; min-width: 0;">
+            {{ form_busqueda.q }}
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm" style="display: flex; align-items: center; justify-content: center;">
+            <i class="bi bi-search"></i>
+        </button>
+        {% if termino_busqueda %}
+        <a href="{% url 'core:catalogo_modelos' %}" class="btn btn-secondary btn-sm" title="Limpiar busqueda" style="display: flex; align-items: center; justify-content: center;">
+            <i class="bi bi-x-lg"></i>
+        </a>
+        {% endif %}
+    </form>
+
+    <!-- Boton Registrar Nuevo Modelo -->
+    <a href="{% url 'core:registrar_modelo' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Registrar Nuevo Modelo
+    </a>
+</div>
+
+<!-- Estadistica rapida -->
+<div style="display: flex; gap: 16px; margin-bottom: 20px;">
+    <div style="padding: 8px 16px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.2);">
+        <span style="color: #059669; font-weight: 600;">{{ total_modelos }}</span>
+        <span style="color: #94a3b8; font-size: 0.8rem;"> Total de Modelos</span>
+    </div>
+</div>
+
+<!-- Resultados de busqueda -->
+{% if termino_busqueda %}
+<div style="margin-bottom: 16px; padding: 10px 16px; background: rgba(16, 185, 129, 0.05); border-radius: 8px; border-left: 3px solid #059669;">
+    <span style="color: #94a3b8; font-size: 0.85rem;">
+        <i class="bi bi-funnel"></i> Resultados para: <strong style="color: #059669;">{{ termino_busqueda }}</strong>
+        ({{ total_modelos }} encontrados)
+    </span>
+</div>
+{% endif %}
+
+<!-- Grid de Modelos (Cards) -->
+{% if modelos_data %}
+<div class="cards-grid">
+    {% for item in modelos_data %}
+    <div class="model-card">
+        <!-- Imagen o Placeholder -->
+        {% if item.imagen_url %}
+        <img src="{{ item.imagen_url }}" alt="{{ item.modelo.nombre }}" class="model-card-img">
+        {% else %}
+        <div class="model-card-img-placeholder">
+            <i class="bi bi-image"></i>
+        </div>
+        {% endif %}
+
+        <div class="model-card-body">
+            <!-- ID Modelo -->
+            <div class="model-card-code">{{ item.modelo.id_modelo }}</div>
+
+            <!-- Nombre -->
+            <div class="model-card-name">{{ item.modelo.nombre }}</div>
+
+            <!-- Footer -->
+            <div class="model-card-footer">
+                <div class="model-card-date">
+                    <i class="bi bi-calendar3"></i> {{ item.modelo.fecha_registro|date:"d/m/Y" }}
+                </div>
+            </div>
+
+            <!-- Acciones -->
+            <div style="display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05);">
+                <a href="{% url 'core:detalle_modelo' item.modelo.pk %}" class="btn btn-outline btn-sm" style="flex: 1;">
+                    <i class="bi bi-eye"></i> Ver
+                </a>
+                <a href="{% url 'core:editar_modelo' item.modelo.pk %}" class="btn btn-primary btn-sm" style="flex: 1;">
+                    <i class="bi bi-pencil"></i> Editar
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% else %}
+<!-- Estado vacio -->
+<div class="card text-center" style="padding: 60px 20px;">
+    <i class="bi bi-box" style="font-size: 3rem; color: #334155; display: block; margin-bottom: 16px;"></i>
+    <h3 style="color: #94a3b8; font-size: 1.1rem; margin-bottom: 8px;">
+        No hay modelos registrados
+    </h3>
+    <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 20px;">
+        Comience registrando el primer modelo de calzado en el sistema.
+    </p>
+    <a href="{% url 'core:registrar_modelo' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Registrar Primer Modelo
+    </a>
+</div>
+{% endif %}
+{% endblock %}

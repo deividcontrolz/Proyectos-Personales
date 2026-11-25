@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Reportar Incidente - 3-JJJ-A{% endblock %}
+{% block page_title %}<i class="bi bi-exclamation-triangle"></i> Reporte de <span>Incidentes</span>{% endblock %}
+
+
+
+{% block content %}
+<div class="reporte-container">
+    <!-- Card del Formulario -->
+    <div class="card" style="border: 1px solid rgba(16, 185, 129, 0.25);">
+        <div class="card-header">
+            <div>
+                <h2><i class="bi bi-exclamation-triangle" style="color: #f59e0b;"></i> Enviar Reporte de Alerta</h2>
+                <p>Complete los campos para reportar un incidente en su area de trabajo.</p>
+            </div>
+            <i class="bi bi-shield-check" style="font-size: 1.8rem; color: #f59e0b; opacity: 0.3;"></i>
+        </div>
+
+        <form method="post" action="{% url 'core:reportar_incidente' %}">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="form-group full-width">
+                <ul class="errorlist">
+                    {% for error in form.non_field_errors %}
+                    <li><i class="bi bi-exclamation-circle"></i> {{ error }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <div class="form-grid">
+                <!-- Columna 1: Tipo -->
+                <div class="form-group{% if form.tipo_incidente.errors %} field-error{% endif %}">
+                    <label for="{{ form.tipo_incidente.id_for_label }}" class="required">
+                        <i class="bi bi-tag"></i> {{ form.tipo_incidente.label }}
+                    </label>
+                    {{ form.tipo_incidente }}
+                    {% if form.tipo_incidente.errors %}
+                    <ul class="errorlist">{{ form.tipo_incidente.errors }}</ul>
+                    {% endif %}
+                </div>
+
+                <!-- Columna 2: Severidad -->
+                <div class="form-group{% if form.severidad.errors %} field-error{% endif %}">
+                    <label for="{{ form.severidad.id_for_label }}" class="required">
+                        <i class="bi bi-grid-3x3-gap"></i> {{ form.severidad.label }}
+                    </label>
+                    {{ form.severidad }}
+                    {% if form.severidad.errors %}
+                    <ul class="errorlist">{{ form.severidad.errors }}</ul>
+                    {% endif %}
+                </div>
+
+                <!-- Columna 1: Etapa -->
+                <div class="form-group{% if form.id_etapa.errors %} field-error{% endif %}">
+                    <label for="{{ form.id_etapa.id_for_label }}" class="required">
+                        <i class="bi bi-geo-alt"></i> {{ form.id_etapa.label }}
+                    </label>
+                    {{ form.id_etapa }}
+                    {% if form.id_etapa.errors %}
+                    <ul class="errorlist">{{ form.id_etapa.errors }}</ul>
+                    {% endif %}
+                </div>
+
+                <!-- Columna 2: Lote (opcional) -->
+                <div class="form-group{% if form.id_lote.errors %} field-error{% endif %}">
+                    <label for="{{ form.id_lote.id_for_label }}">
+                        <i class="bi bi-layers"></i> {{ form.id_lote.label }}
+                    </label>
+                    {{ form.id_lote }}
+                    {% if form.id_lote.errors %}
+                    <ul class="errorlist">{{ form.id_lote.errors }}</ul>
+                    {% endif %}
+                    <span class="help-text">Opcional: relacionado a un lote.</span>
+                </div>
+
+                <!-- Columna 1: Maquina (opcional) -->
+                <div class="form-group{% if form.id_maquina.errors %} field-error{% endif %}">
+                    <label for="{{ form.id_maquina.id_for_label }}">
+                        <i class="bi bi-cpu"></i> {{ form.id_maquina.label }}
+                    </label>
+                    {{ form.id_maquina }}
+                    {% if form.id_maquina.errors %}
+                    <ul class="errorlist">{{ form.id_maquina.errors }}</ul>
+                    {% endif %}
+                    <span class="help-text">Opcional: relacionado a una maquina.</span>
+                </div>
+
+                <!-- Columna 2: Info de política (ocupa espacio vacío) -->
+                <div class="form-group" style="display: flex; align-items: center;">
+                    <div style="padding: 10px 14px; background: rgba(59, 130, 246, 0.05); border-radius: 10px; border: 1px solid rgba(59, 130, 246, 0.15);">
+                        <i class="bi bi-shield-check" style="color: #3b82f6; margin-right: 6px;"></i>
+                        <span style="font-size: 0.78rem; color: #94a3b8;">
+                            Todos los incidentes son <strong style="color: #60a5fa;">notificados al gerente</strong> en tiempo real.
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Descripcion: ancho completo -->
+                <div class="form-group full-width{% if form.descripcion.errors %} field-error{% endif %}">
+                    <label for="{{ form.descripcion.id_for_label }}" class="required">
+                        <i class="bi bi-card-text"></i> {{ form.descripcion.label }}
+                    </label>
+                    {{ form.descripcion }}
+                    {% if form.descripcion.errors %}
+                    <ul class="errorlist">{{ form.descripcion.errors }}</ul>
+                    {% endif %}
+                    <div class="help-text">
+                        Minimo 10 caracteres, maximo 800.
+                        <span id="charCount" style="float: right;">0 / 800</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botones -->
+            <div class="btn-actions">
+                <button type="submit" class="btn-submit">
+                    <i class="bi bi-box-arrow-up"></i> Enviar Reporte
+                </button>
+                <a href="{% url 'core:redirect_por_rol' %}" class="btn-cancel">
+                    <i class="bi bi-x-circle"></i> Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Mis Incidentes Recientes -->
+    {% if mis_incidentes %}
+    <div class="card">
+        <div class="card-header" style="border-bottom: 1px solid rgba(148, 163, 184, 0.1); margin-bottom: 14px;">
+            <h2><i class="bi bi-clock-history"></i> Mis Incidentes Recientes</h2>
+        </div>
+        <div style="overflow-x: auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Tipo</th>
+                        <th>Etapa</th>
+                        <th>Severidad</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inc in mis_incidentes %}
+                    <tr>
+                        <td><strong>#{{ inc.id_incidente }}</strong></td>
+                        <td>{{ inc.get_tipo_incidente_display }}</td>
+                        <td>{{ inc.id_etapa.nombre_etapa|default:"N/A" }}</td>
+                        <td>
+                            <span class="severity-badge severity-{{ inc.severidad|lower }}">
+                                {{ inc.get_severidad_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="status-badge badge-{{ inc.estado|lower }}">
+                                {{ inc.get_estado_display }}
+                            </span>
+                        </td>
+                        <td>{{ inc.fecha_reporte|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ titulo }} - 3-JJJ-A{% endblock %}
+{% block page_title %}
+<i class="bi {% if modo == 'crear' %}bi-plus-circle{% else %}bi-pencil{% endif %}"></i>
+{{ titulo }}
+{% endblock %}
+
+{% block content %}
+<div class="page-registrar-modelo" style="max-width: 700px; margin: 0 auto;">
+    <!-- Boton volver -->
+    <div style="margin-bottom: 20px;">
+        <a href="{% url 'core:catalogo_modelos' %}" class="btn btn-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Volver al Catalogo
+        </a>
+    </div>
+
+    <!-- Formulario -->
+    <div class="card" style="border: 1px solid rgba(16, 185, 129, 0.25);">
+        <div class="card-header" style="border-bottom: 1px solid rgba(16, 185, 129, 0.15); padding-bottom: 16px;">
+            <div>
+                <h2 style="font-size: 1.1rem; font-weight: 600; color: #f1f5f9; margin-bottom: 4px;">
+                    {% if modo == 'crear' %}
+                    <i class="bi bi-plus-circle" style="color: #059669;"></i> Registrar Nuevo Modelo de Calzado
+                    {% else %}
+                    <i class="bi bi-pencil" style="color: #d97706;"></i> Editar Modelo
+                    {% endif %}
+                </h2>
+                <p style="font-size: 0.8rem; color: #64748b; margin: 0;">
+                    Complete el campo obligatorio.
+                </p>
+            </div>
+        </div>
+
+        <form method="post" action="" enctype="multipart/form-data" style="padding-top: 20px;">
+            {% csrf_token %}
+
+            <!-- Nombre -->
+            <div class="form-group{% if form.nombre.errors %} field-error{% endif %}">
+                <label for="{{ form.nombre.id_for_label }}" class="form-label">
+                    <i class="bi bi-type"></i> {{ form.nombre.label }} <span style="color: #dc2626;">*</span>
+                </label>
+                {{ form.nombre }}
+                {% if form.nombre.errors %}
+                <div class="form-error">
+                    <i class="bi bi-exclamation-circle"></i> {{ form.nombre.errors.0 }}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Imagen -->
+            <div class="form-group{% if form.imagen.errors %} field-error{% endif %}">
+                <label for="{{ form.imagen.id_for_label }}" class="form-label">
+                    <i class="bi bi-image"></i> {{ form.imagen.label }}
+                </label>
+
+                {% if modo == 'editar' and imagen_url %}
+                <!-- Vista previa de imagen actual -->
+                <div style="margin-bottom: 12px; padding: 10px; background: rgba(15, 23, 42, 0.6); border-radius: 10px; border: 1px solid rgba(16, 185, 129, 0.15); text-align: center;">
+                    <img src="{{ imagen_url }}" alt="Imagen actual" style="max-height: 160px; max-width: 100%; border-radius: 8px; object-fit: cover;">
+                    <div style="margin-top: 8px;">
+                        <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: #f87171; font-size: 0.85rem; font-weight: 500;">
+                            <input type="checkbox" name="eliminar_imagen" value="1" style="width: 16px; height: 16px; accent-color: #ef4444;">
+                            <i class="bi bi-x-circle"></i> Eliminar imagen actual
+                        </label>
+                    </div>
+                </div>
+                {% endif %}
+
+                {{ form.imagen }}
+                {% if form.imagen.errors %}
+                <div class="form-error">
+                    <i class="bi bi-exclamation-circle"></i> {{ form.imagen.errors.0 }}
+                </div>
+                {% endif %}
+                <div class="help-text">Formatos: JPG, PNG, WEBP. Maximo 2MB.{% if modo == 'editar' and imagen_url %} Subir una nueva reemplaza la actual.{% endif %}</div>
+            </div>
+
+            <!-- Botones -->
+            <div style="display: flex; gap: 12px; margin-top: 28px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05);">
+                <button type="submit" class="btn btn-primary btn-lg" style="flex: 1;">
+                    <i class="bi bi-check-circle"></i>
+                    {% if modo == 'crear' %}Registrar Modelo{% else %}Guardar Cambios{% endif %}
+                </button>
+                <a href="{% url 'core:catalogo_modelos' %}" class="btn btn-danger btn-lg" style="flex: 0.4;">
+                    <i class="bi bi-x-circle"></i> Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

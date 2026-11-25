@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Terminal de Planta - {{ etapa.nombre_etapa }} - 3-JJJ-A{% endblock %}
+
+
+
+{% block page_title %}Terminal de Planta - {{ etapa.nombre_etapa }}{% endblock %}
+
+{% block content %}
+<div class="terminal-container">
+    <!-- Header -->
+    <div class="terminal-header">
+        <div>
+            <h1><i class="bi bi-terminal"></i> Terminal de Planta</h1>
+            <p style="color: #94a3b8; margin: 4px 0 0 0; font-size: 0.85rem;">
+                Estacion de Trabajo Activa | {{ usuario.nombre_completo }}
+            </p>
+        </div>
+        <div class="etapa-badge">
+            <i class="bi bi-geo-alt"></i>
+            {{ etapa.nombre_etapa }}
+        </div>
+    </div>
+
+    <!-- Estadisticas del turno -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">{{ total_registros_hoy }}</div>
+            <div class="stat-label">Registros Hoy</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ total_pares_hoy }}</div>
+            <div class="stat-label">Pares Procesados</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ total_aprobados_hoy }}</div>
+            <div class="stat-label">Aprobados</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ total_rechazados_hoy }}</div>
+            <div class="stat-label">Rechazados</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ eficiencia_turno }}%</div>
+            <div class="stat-label">Eficiencia</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ lotes_activos|length }}</div>
+            <div class="stat-label">Lotes Activos</div>
+        </div>
+    </div>
+
+    <!-- Formulario de Registro -->
+    <div class="card">
+        <h2><i class="bi bi-upc-scan"></i> Registro de Entrada y Salida de Lote</h2>
+
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" id="op-accion" name="accion" value="Entrada">
+
+            <div class="form-group">
+                <label for="op-lote">Codigo del Lote / Orden de Produccion</label>
+                <input type="text" id="op-lote" name="lote_id" class="form-control-dark input-lote"
+                       placeholder="ESCANEE O INGRESE ID" autofocus required>
+            </div>
+
+            <div class="btn-actions">
+                <button type="button" class="btn-action btn-entrada" onclick="enviarMovimiento('Entrada')">
+                    <i class="bi bi-box-arrow-in-down"></i>
+                    Registrar Entrada
+                </button>
+                <button type="button" class="btn-action btn-salida" onclick="enviarMovimiento('Salida')">
+                    <i class="bi bi-box-arrow-up"></i>
+                    Registrar Salida
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Lotes Activos -->
+    {% if lotes_activos %}
+    <div class="card">
+        <h2><i class="bi bi-lightning-charge"></i> Lotes Activos en esta Etapa</h2>
+        <div style="overflow-x: auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Lote</th>
+                        <th>Modelo</th>
+                        <th>Hora Entrada</th>
+                        <th>Tiempo Transcurrido</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lote in lotes_activos %}
+                    <tr>
+                        <td><span class="lote-badge">{{ lote.id_lote.id_lote }}</span></td>
+                        <td>{{ lote.id_lote.id_modelo.nombre }}</td>
+                        <td>{{ lote.hora_entrada|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            {% with tiempo=now|timeuntil:lote.hora_entrada %}
+                                {{ tiempo }}
+                            {% endwith %}
+                        </td>
+                        <td><span class="status-badge status-en-proceso">En Proceso</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Ultimos Movimientos -->
+    <div class="card">
+        <h2><i class="bi bi-clock-history"></i> Ultimos Movimientos Registrados</h2>
+        <div style="overflow-x: auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Hora</th>
+                        <th>Lote</th>
+                        <th>Accion</th>
+                        <th>Tiempo Total</th>
+                        <th>Pares</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for reg in movimientos %}
+                    <tr>
+                        <td>{{ reg.hora_entrada|date:"d/m/Y H:i" }}</td>
+                        <td><span class="lote-badge">{{ reg.id_lote.id_lote }}</span></td>
+                        <td>
+                            {% if reg.hora_salida %}
+                                <i class="bi bi-box-arrow-up" style="color: #059669;"></i> Salida
+                            {% else %}
+                                <i class="bi bi-box-arrow-in-down" style="color: #d97706;"></i> Entrada
+                            {% endif %}
+                        </td>
+                        <td>{{ reg.tiempo_total_etapa|default:"En curso" }}</td>
+                        <td>{{ reg.pares_aprobados|add:reg.pares_rechazados }}</td>
+                        <td>
+                            {% if reg.estado_actual == 'COMPLETADO' %}
+                                <span class="status-badge status-completado">Completado</span>
+                            {% else %}
+                                <span class="status-badge status-en-proceso">En Proceso</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="empty-state">
+                            <i class="bi bi-inbox" style="font-size: 2rem; color: #64748b;"></i><br>
+                            No hay movimientos registrados en esta terminal
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}

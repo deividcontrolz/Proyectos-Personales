@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Control de Calidad - 3-JJJ-A{% endblock %}
+
+{% block page_title %}Control de Calidad{% endblock %}
+
+{% block content %}
+<div class="page-calidad">
+    <div class="calidad-container">
+        <!-- Header -->
+        <div class="calidad-header">
+            <div>
+                <h1><i class="bi bi-shield-check"></i> Control de Calidad</h1>
+                <p style="color: #94a3b8; margin: 4px 0 0 0; font-size: 0.85rem;">
+                    Aseguramiento de Calzado | {{ usuario.nombre_completo }}
+                </p>
+            </div>
+        </div>
+
+        <!-- Estadisticas de Calidad -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value blue">{{ tasa_calidad }}%</div>
+                <div class="stat-label">Tasa de Calidad</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ total_auditados }}</div>
+                <div class="stat-label">Lotes Auditados</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value green">{{ total_aprobados }}</div>
+                <div class="stat-label">Pares Aprobados</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value red">{{ total_rechazados }}</div>
+                <div class="stat-label">Pares Rechazados</div>
+            </div>
+        </div>
+
+        <!-- Formulario de Inspeccion -->
+        <div class="card">
+            <h2>Inspeccion de Lote Terminado</h2>
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label for="lote-id" class="required">Codigo del Lote</label>
+                    <input type="text" name="lote_id" id="lote-id" class="form-control-dark"
+                           placeholder="Ingrese el ID del lote" required>
+                </div>
+
+                <div class="counters-grid">
+                    <div class="counter-box approved">
+                        <label><i class="bi bi-check-circle"></i> Pares Aprobados</label>
+                        <input type="number" name="pares_aprobados" class="form-control-dark input-counter" value="0" min="0">
+                    </div>
+                    <div class="counter-box rejected">
+                        <label><i class="bi bi-x-circle"></i> Pares Rechazados</label>
+                        <input type="number" name="pares_rechazados" class="form-control-dark input-counter" value="0" min="0">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-submit">
+                    <i class="bi bi-save"></i> Guardar Inspeccion
+                </button>
+            </form>
+        </div>
+
+        <!-- Historial de Auditorias -->
+        <div class="card">
+            <h2><i class="bi bi-clock-history"></i> Historial de Auditorias</h2>
+            <div style="overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Codigo Lote</th>
+                            <th>Modelo</th>
+                            <th>Estado</th>
+                            <th>Volumen</th>
+                            <th>Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for lote in lotes %}
+                        <tr>
+                            <td><span class="lote-badge">{{ lote.id_lote }}</span></td>
+                            <td><strong>{{ lote.id_modelo.nombre }}</strong></td>
+                            <td>
+                                {% if lote.estado_actual == 'APROBADO' %}
+                                    <span class="yield-badge yield-good">{{ lote.estado_actual }}</span>
+                                {% elif lote.estado_actual == 'RECHAZADO' %}
+                                    <span class="yield-badge yield-bad">{{ lote.estado_actual }}</span>
+                                {% else %}
+                                    <span class="yield-badge yield-pending">{{ lote.estado_actual }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ lote.cant_solicitada }} prs</td>
+                            <td>{{ lote.fecha_creacion|date:"d/m/Y" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="empty-state">
+                                <i class="bi bi-inbox" style="font-size: 2rem; color: #64748b;"></i><br>
+                                No se han auditado lotes en el turno actual
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,206 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>{% block title %}Sistema de Gestion de Produccion - 3-JJJ-A{% endblock %}</title>
+
+    <!-- Estilos principales modo oscuro -->
+    <link rel="stylesheet" href="{% static 'css/custom.css' %}">
+    <link rel="stylesheet" href="{% static 'css/responsive.css' %}">
+
+    <!-- Chart.js para graficos del dashboard -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- Iconos (Bootstrap Icons via CDN) -->
+    <link rel="stylesheet" href="{% static 'css/3jjja-icons-mask.css' %}">
+
+    {% block extra_head %}{% endblock %}
+
+    <link rel="stylesheet" href="{% static 'css/app.css' %}"></head>
+<body>
+
+    <!-- ==================== SIDEBAR / MENU LATERAL ==================== -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <img src="{% static 'images/Logo de la empresa.jpeg' %}"
+                 alt="3-JJJ-A Logo"
+                 class="sidebar-logo"
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <div class="sidebar-brand" style="display:none;">
+                <i class="bi bi-building-gear"></i> 3-JJJ-A
+            </div>
+            <div class="sidebar-brand">
+                Sistema de Gestion
+            </div>
+        </div>
+
+        <ul class="sidebar-nav">
+            {% if usuario.rol in "GERENTE,SUBGERENTE" or usuario.is_staff %}
+            <li class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                <a href="{% url 'core:dashboard' %}">
+                    <i class="bi bi-speedometer2"></i>
+                    Dashboard Gerencial
+                </a>
+            </li>
+            {% endif %}
+
+            {% if usuario.rol in "GERENTE,SUBGERENTE" or usuario.is_staff %}
+            <li class="{% if 'catalogo' in request.resolver_match.url_name %}active{% endif %}">
+                <a href="{% url 'core:catalogo_modelos' %}">
+                    <i class="bi bi-box-seam"></i>
+                    Catalogo de Modelos
+                </a>
+            </li>
+            {% endif %}
+
+            {% if usuario.rol in "DIRECTOR_PRODUCCION,DIRECTOR_DESPACHO" or usuario.is_staff %}
+            <li class="{% if request.resolver_match.url_name == 'configuracion' %}active{% endif %}">
+                <a href="{% url 'core:configuracion' %}">
+                    <i class="bi bi-gear"></i>
+                    Linea de Produccion
+                </a>
+            </li>
+            {% endif %}
+
+            {% if usuario.rol == 'DIRECTOR_PRODUCCION' or usuario.is_staff %}
+            <li class="{% if request.resolver_match.url_name == 'trazabilidad' %}active{% endif %}">
+                <a href="{% url 'core:trazabilidad' %}">
+                    <i class="bi bi-diagram-3"></i>
+                    Trazabilidad
+                </a>
+            </li>
+            {% endif %}
+
+            {% if usuario.rol == 'OPERARIO' %}
+            <li class="{% if 'operario' in request.resolver_match.url_name %}active{% endif %}">
+                <a href="{% url 'core:operario' %}">
+                    <i class="bi bi-terminal"></i>
+                    Terminal de Planta
+                </a>
+            </li>
+            {% endif %}
+
+            {% if usuario.is_staff or usuario.etapa_asignada and usuario.etapa_asignada.nombre_etapa|lower == 'calidad' %}
+            <li class="{% if request.resolver_match.url_name == 'calidad' %}active{% endif %}">
+                <a href="{% url 'core:calidad' %}">
+                    <i class="bi bi-shield-check"></i>
+                    Control de Calidad
+                </a>
+            </li>
+            {% endif %}
+
+            {% if usuario %}
+            <li class="{% if request.resolver_match.url_name == 'reportar_incidente' %}active{% endif %}">
+                <a href="{% url 'core:reportar_incidente' %}">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Reportar Incidente
+                </a>
+            </li>
+            {% endif %}
+
+            {% if usuario.rol in "GERENTE,SUBGERENTE" or usuario.is_staff %}
+            <li class="{% if request.resolver_match.url_name == 'historial_incidentes' %}active{% endif %}">
+                <a href="{% url 'core:historial_incidentes' %}">
+                    <i class="bi bi-clock-history"></i>
+                    Historial de Alertas
+                </a>
+            </li>
+            {% endif %}
+
+            <li style="margin: 16px 12px; border-top: 1px solid rgba(16, 185, 129, 0.1); list-style: none;"></li>
+
+            {% if usuario.is_staff %}
+            <li class="{% if request.resolver_match.url_name == 'registro' %}active{% endif %}">
+                <a href="{% url 'core:registro' %}">
+                    <i class="bi bi-person-plus"></i>
+                    Registrar Usuario
+                </a>
+            </li>
+            {% endif %}
+
+            {% if usuario.is_staff %}
+            <li class="{% if request.resolver_match.url_name == 'panel_admin' %}active{% endif %}">
+                <a href="{% url 'core:panel_admin' %}">
+                    <i class="bi bi-shield-lock"></i>
+                    Panel de Administracion
+                </a>
+            </li>
+            {% endif %}
+
+            <li style="margin: 16px 12px; border-top: 1px solid rgba(16, 185, 129, 0.1); list-style: none;"></li>
+
+            <li>
+                <a href="{% url 'core:logout' %}" style="color: #f87171;">
+                    <i class="bi bi-box-arrow-right"></i>
+                    Cerrar Sesion
+                </a>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <i class="bi bi-c-circle"></i> 3-JJJ-A<br>
+            <small>v1.0 - UPTAMCA</small>
+        </div>
+    </nav>
+
+    <button class="sidebar-toggle" id="sidebarToggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
+        <i class="bi bi-list"></i>
+    </button>
+
+    <!-- ==================== TOASTS / MENSAJES (FUERA DEL FLUJO) ==================== -->
+    {% if messages %}
+    <div class="messages-container" id="messagesContainer">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} fade-in" data-auto-close>
+            <i class="bi bi-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}x-circle{% elif message.tags == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %}"></i>
+            <span>{{ message }}</span>
+            <button type="button" class="btn-close-toast" onclick="this.parentElement.remove()">&times;</button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- ==================== CONTENIDO PRINCIPAL ==================== -->
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-inner">
+                <div class="topbar-title">
+                    {% block page_title %}Dashboard{% endblock %}
+                </div>
+                <div class="topbar-user">
+                    <div class="user-badge-chip" title="{{ usuario.nombre_completo|default:usuario.id_usuario }} - {{ usuario.get_rol_display|default:"Usuario" }}">
+                        <i class="bi bi-person-circle"></i>
+                        <span class="user-name">{{ usuario.nombre_completo|default:usuario.id_usuario }}</span>
+                        <span class="user-role-pill user-role-full">{{ usuario.get_rol_display|default:"Usuario" }}</span>
+                        <span class="user-role-pill user-role-short">
+                            {% if usuario.is_staff %}Admin
+                            {% elif usuario.rol == 'GERENTE' %}Gerente
+                            {% elif usuario.rol == 'SUBGERENTE' %}Subgerente
+                            {% elif usuario.rol == 'DIRECTOR_PRODUCCION' %}Dir. Prod.
+                            {% elif usuario.rol == 'DIRECTOR_DESPACHO' %}Dir. Desp.
+                            {% elif usuario.rol == 'OPERARIO' %}Operario
+                            {% else %}{{ usuario.get_rol_display|default:"Usuario" }}
+                            {% endif %}
+                        </span>
+                    </div>
+                    <a href="{% url 'core:logout' %}" class="btn-logout-chip" title="Cerrar Sesion">
+                        <i class="bi bi-box-arrow-right"></i>
+                        <span class="logout-text">Salir</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="{% static 'js/app.js' %}"></script>
+
+    {% block extra_scripts %}{% endblock %}
+
+    <script src="{% static 'js/password-limits.js' %}" defer></script>
+</body>
+</html>

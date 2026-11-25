@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Trazabilidad de Lotes - 3-JJJ-A{% endblock %}
+{% block page_title %}<i class="bi bi-diagram-3"></i> Trazabilidad de <span>Lotes en Produccion</span>{% endblock %}
+
+{% block content %}
+
+
+<div class="trazabilidad-grid">
+    <!-- PANEL IZQUIERDO: Mapa de Trazabilidad -->
+    <div class="card">
+        {% if lote_seleccionado %}
+        <div class="trazabilidad-header">
+            <h2><i class="bi bi-geo-alt" style="color: #059669;"></i> Lote {{ lote_seleccionado.id_lote }}</h2>
+            <div class="meta">
+                <span><i class="bi bi-box-seam"></i> Modelo: <strong>{{ lote_seleccionado.id_modelo.nombre }}</strong></span>
+                <span><i class="bi bi-layers"></i> Cantidad: <strong>{{ lote_seleccionado.cant_solicitada }} pares</strong></span>
+                <span class="badge-estado badge-en-proceso">
+                    En Proceso
+                </span>
+            </div>
+        </div>
+
+        <div class="trazabilidad-linea">
+            {% for item in progreso %}
+            <div class="nodo-row">
+                <div class="nodo-indicador {{ item.estado }}">
+                    {% if item.estado == 'completado' %}
+                    <i class="bi bi-check-lg"></i>
+                    {% elif item.estado == 'actual' %}
+                    <i class="bi bi-arrow-right"></i>
+                    {% endif %}
+                </div>
+                <div class="nodo-info">
+                    <div class="nodo-titulo">
+                        {{ item.etapa.nombre_etapa }}
+                        {% if item.estado == 'actual' %}
+                        <span style="font-size: 0.7rem; color: #f59e0b; margin-left: 8px;">(ETAPA ACTUAL)</span>
+                        {% endif %}
+                    </div>
+                    {% if item.registro %}
+                    <div class="nodo-meta">
+                        {% if item.registro.id_usuario %}
+                        <strong>Operario:</strong> {{ item.registro.id_usuario.nombre_completo }}<br>
+                        {% endif %}
+                        {% if item.registro.hora_entrada %}
+                        <span class="nodo-hora">
+                            <i class="bi bi-box-arrow-in-down"></i> Entrada: {{ item.registro.hora_entrada|date:"d/m/Y H:i" }}
+                        </span>
+                        {% endif %}
+                        {% if item.registro.hora_salida %}
+                        <span class="nodo-hora">
+                            <i class="bi bi-box-arrow-right"></i> Salida: {{ item.registro.hora_salida|date:"d/m/Y H:i" }}
+                        </span>
+                        {% endif %}
+                        {% if item.registro.tiempo_total_etapa %}
+                        <span class="nodo-hora">
+                            <i class="bi bi-clock-history"></i> Tiempo: {{ item.registro.tiempo_total_etapa }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="nodo-meta" style="color: #475569; font-style: italic;">
+                        Pendiente por iniciar
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="leyenda">
+            <div class="leyenda-item">
+                <div class="leyenda-dot completado"></div> Completado
+            </div>
+            <div class="leyenda-item">
+                <div class="leyenda-dot actual"></div> En Proceso
+            </div>
+            <div class="leyenda-item">
+                <div class="leyenda-dot pendiente"></div> Pendiente
+            </div>
+        </div>
+
+        {% else %}
+        <div class="mapa-vacio">
+            <i class="bi bi-diagram-3"></i>
+            <h3 style="color: #94a3b8; font-size: 1.1rem; margin-bottom: 8px;">Seleccione un lote</h3>
+            <p style="font-size: 0.85rem; color: #64748b;">
+                Elija un lote de la lista de la derecha para visualizar su trazabilidad en la linea de produccion.
+            </p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- PANEL DERECHO: Lista de Lotes en Proceso -->
+    <div class="card lotes-panel">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+        
+            <h3 style="font-size: 1rem; color: #f1f5f9; margin: 0;">Lotes en Proceso</h3>
+            <span style="margin-left: auto; font-size: 0.75rem; color: #64748b; background: rgba(255,255,255,0.03); padding: 2px 8px; border-radius: 10px;">
+                {{ lotes_en_proceso|length }}
+            </span>
+        </div>
+
+        {% if lotes_en_proceso %}
+            {% for lote in lotes_en_proceso %}
+            <a href="?lote={{ lote.id_lote }}" class="lote-item {% if lote_seleccionado.id_lote == lote.id_lote %}active{% endif %}">
+                <div class="lote-id">
+                    <i class="bi bi-upc-scan"></i> {{ lote.id_lote }}
+                </div>
+                <div class="lote-modelo">
+                    <i class="bi bi-box-seam"></i> {{ lote.id_modelo.nombre }}
+                </div>
+                <div class="lote-cantidad">
+                    <i class="bi bi-layers"></i> {{ lote.cant_solicitada }} pares solicitados
+                    &nbsp;&bull;&nbsp;
+                    <i class="bi bi-calendar3"></i> {{ lote.fecha_creacion|date:"d/m/Y" }}
+                </div>
+            </a>
+            {% endfor %}
+        {% else %}
+            <div style="text-align: center; padding: 40px 10px; color: #64748b;">
+                <i class="bi bi-inbox" style="font-size: 2rem; display: block; margin-bottom: 10px; color: #334155;"></i>
+                <p style="font-size: 0.85rem;">No hay lotes en proceso actualmente.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

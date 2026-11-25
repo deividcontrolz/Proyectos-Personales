@@ -1,0 +1,509 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesion - 3-JJJ-A</title>
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="{% static 'css/3jjja-icons-mask.css' %}">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            height: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        /* ============================================================
+           FONDO: Oscuro con difuminado verde desde la mitad
+           ============================================================ */
+        .page-wrapper {
+            display: flex;
+            width: 100%;
+            height: 100vh;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            position: relative;
+        }
+        .page-wrapper::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            background: linear-gradient(180deg, 
+                rgba(16, 185, 129, 0.0) 0%, 
+                rgba(16, 185, 129, 0.05) 15%,
+                rgba(5, 150, 105, 0.12) 40%,
+                rgba(4, 120, 87, 0.20) 65%,
+                rgba(6, 78, 59, 0.28) 100%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .page-wrapper::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 50%;
+            height: 100%;
+            background: radial-gradient(ellipse at 80% 50%, 
+                rgba(16, 185, 129, 0.06) 0%, 
+                transparent 55%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ============================================================
+           PANEL IZQUIERDO: Formulario
+           ============================================================ */
+        .left-panel {
+            width: 42%;
+            min-width: 400px;
+            max-width: 500px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 50px;
+            position: relative;
+            z-index: 1;
+        }
+        .login-card {
+            width: 100%;
+            max-width: 340px;
+            background: rgba(30, 41, 59, 0.95);
+            border: 1px solid rgba(16, 185, 129, 0.15);
+            border-radius: 24px;
+            padding: 40px 36px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3), 
+                        0 4px 12px rgba(0, 0, 0, 0.15),
+                        0 0 0 1px rgba(16, 185, 129, 0.05);
+            backdrop-filter: blur(10px);
+        }
+        .login-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .login-logo {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 16px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            color: white;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+        .login-header h1 {
+            color: #f1f5f9;
+            font-size: 1.25rem;
+            margin: 0 0 6px 0;
+            font-weight: 700;
+        }
+        .login-header p {
+            color: #94a3b8;
+            font-size: 0.8rem;
+            margin: 0;
+            letter-spacing: 0.5px;
+        }
+        .form-group {
+            margin-bottom: 18px;
+        }
+        .form-group label {
+            display: block;
+            color: #cbd5e1;
+            font-size: 0.78rem;
+            font-weight: 600;
+            margin-bottom: 7px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .form-control-dark {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1.5px solid rgba(100, 116, 139, 0.3);
+            border-radius: 12px;
+            color: #f1f5f9;
+            font-size: 0.9rem;
+            transition: all 0.25s ease;
+        }
+        .form-control-dark:focus {
+            outline: none;
+            border-color: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+            background: rgba(15, 23, 42, 0.95);
+        }
+        .form-control-dark::placeholder {
+            color: #64748b;
+        }
+
+        /* Botón de ver/ocultar contraseña */
+        .password-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+        .password-input-wrapper input {
+            padding-right: 42px;
+        }
+        .toggle-password-btn {
+            position: absolute;
+            right: 12px;
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 1.1rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            transition: color 0.2s ease;
+            z-index: 2;
+        }
+        .toggle-password-btn:hover {
+            color: #10b981;
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 13px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 8px;
+            letter-spacing: 0.5px;
+        }
+        .btn-login:hover {
+            background: linear-gradient(135deg, #059669, #047857);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
+        }
+        .messages-container {
+            margin-bottom: 18px;
+        }
+        .alert {
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .alert-success {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #34d399;
+        }
+        .alert-error,
+        .alert-info {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171;
+        }
+        .fade-in {
+            animation: fadeIn 0.4s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ============================================================
+           PANEL DERECHO: Branding arriba + Cards abajo
+           ============================================================ */
+        .right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 60px 60px 30px;
+            position: relative;
+            z-index: 1;
+            overflow-y: auto;
+        }
+
+        /* --- Zona superior: titulos --- */
+        .brand-zone {
+            text-align: center;
+            margin-bottom: 40px;
+            animation: fadeInDown 0.6s ease;
+        }
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .brand-icon-top {
+            font-size: 3.2rem;
+            color: #6b7280;
+            opacity: 0.25;
+            margin-bottom: 16px;
+        }
+        .brand-title {
+            font-size: 4.2rem;
+            font-weight: 900;
+            letter-spacing: -2px;
+            line-height: 1.05;
+            background: linear-gradient(135deg, #9ca3af 0%, #6b7280 50%, #4b5563 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 2px 20px rgba(107, 114, 128, 0.2);
+        }
+        .brand-line {
+            width: 100px;
+            height: 3px;
+            background: linear-gradient(90deg, #10b981, #059669, #047857);
+            border-radius: 2px;
+            margin: 18px auto;
+            opacity: 0.8;
+        }
+        .brand-subtitle {
+            font-size: 1.2rem;
+            font-weight: 500;
+            color: #6b7280;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            opacity: 0.9;
+        }
+
+        /* --- Zona inferior: grid de 4 cards --- */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 18px;
+            width: 100%;
+            max-width: 680px;
+            margin-top: auto;
+            padding-bottom: 20px;
+        }
+        .feature-card {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            border-radius: 16px;
+            padding: 24px 22px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(6px);
+            animation: fadeInUp 0.6s ease both;
+        }
+        .feature-card:nth-child(1) { animation-delay: 0.1s; }
+        .feature-card:nth-child(2) { animation-delay: 0.2s; }
+        .feature-card:nth-child(3) { animation-delay: 0.3s; }
+        .feature-card:nth-child(4) { animation-delay: 0.4s; }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .feature-card:hover {
+            background: rgba(30, 41, 59, 0.85);
+            border-color: rgba(16, 185, 129, 0.25);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+        }
+        .feature-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            margin-bottom: 14px;
+        }
+        .feature-icon.green  { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+        .feature-icon.blue   { background: rgba(14, 165, 233, 0.12); color: #0ea5e9; }
+        .feature-icon.orange { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+        .feature-icon.purple { background: rgba(139, 92, 246, 0.12); color: #a78bfa; }
+        .feature-card h3 {
+            color: #f1f5f9;
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin: 0 0 8px 0;
+        }
+        .feature-card p {
+            color: #94a3b8;
+            font-size: 0.82rem;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        /* ============================================================
+           FOOTER
+           ============================================================ */
+        .footer-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 18px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 0.78rem;
+            z-index: 2;
+            letter-spacing: 0.5px;
+            background: rgba(15, 23, 42, 0.5);
+            backdrop-filter: blur(4px);
+            border-top: 1px solid rgba(16, 185, 129, 0.08);
+        }
+        .footer-bar span {
+            color: #10b981;
+            font-weight: 600;
+        }
+
+        /* Responsive */
+        @media (max-width: 1100px) {
+            .brand-title { font-size: 3.2rem; }
+            .features-grid { max-width: 560px; }
+        }
+        @media (max-width: 900px) {
+            .page-wrapper { flex-direction: column; overflow-y: auto; height: auto; min-height: 100vh; }
+            .left-panel { width: 100%; max-width: none; min-width: auto; padding: 40px 20px; }
+            .right-panel { padding: 40px 20px 100px; }
+            .brand-title { font-size: 2.4rem; }
+            .brand-subtitle { font-size: 0.9rem; letter-spacing: 2px; }
+            .features-grid { grid-template-columns: 1fr; max-width: 400px; }
+            .footer-bar { position: relative; }
+        }
+        @media (max-width: 480px) {
+            .login-card { padding: 32px 24px; }
+            .login-header h1 { font-size: 1.1rem; }
+            .brand-title { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Panel Izquierdo: Login -->
+        <div class="left-panel">
+            <div class="login-card">
+                <div class="login-header">
+                    <div class="login-logo">
+                        <i class="bi bi-building-gear"></i>
+                    </div>
+                    <h1>Iniciar Sesion</h1>
+                    <p>Sistema de Gestion de Produccion</p>
+                </div>
+
+                {% if messages %}
+                <div class="messages-container">
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} fade-in">
+                        <i class="bi bi-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}x-circle{% else %}info-circle{% endif %}"></i>
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label for="username">Usuario</label>
+                        <input type="text" id="id_username" name="username" class="form-control-dark"
+                               placeholder="Ingrese su usuario" required autofocus autocomplete="username" maxlength="50">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Contrasena</label>
+                        <div class="password-input-wrapper">
+                            <input type="password" id="id_password" name="password" class="form-control-dark"
+                                   placeholder="Ingrese su contrasena" required autocomplete="current-password" maxlength="20">
+                            <button type="button" class="toggle-password-btn" aria-label="Mostrar u ocultar contraseña">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-login">
+                        Iniciar Sesion
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Panel Derecho: Branding + Features -->
+        <div class="right-panel">
+            <!-- Zona superior: titulos -->
+            <div class="brand-zone">
+                <i class="bi bi-building-gear brand-icon-top"></i>
+                <h1 class="brand-title">Manufacturas 3-JJJ-A</h1>
+                <div class="brand-line"></div>
+                <h2 class="brand-subtitle">Sistema para la Linea de Produccion</h2>
+            </div>
+
+            <!-- Zona inferior: 4 cards de funcionalidades -->
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon green">
+                        <i class="bi bi-layers"></i>
+                    </div>
+                    <h3>Gestion de Etapas</h3>
+                    <p>Registra el flujo de produccion por etapas: entrada, proceso y salida de lotes en tiempo real.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon blue">
+                        <i class="bi bi-shield-check"></i>
+                    </div>
+                    <h3>Control de Calidad</h3>
+                    <p>Audita pares aprobados y rechazados, asegurando estandares en cada lote manufacturado.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon orange">
+                        <i class="bi bi-exclamation-triangle"></i>
+                    </div>
+                    <h3>Incidentes y Alertas</h3>
+                    <p>Reporta, rastrea y resuelve incidentes operativos para minimizar tiempos muertos.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon purple">
+                        <i class="bi bi-speedometer2"></i>
+                    </div>
+                    <h3>Dashboard Gerencial</h3>
+                    <p>Visualiza OEE, eficiencia por area, consumo energetico y reportes PDF de toda la planta.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer-bar">
+            <i class="bi bi-c-circle"></i> Copyright - <span>Manufacturas 3-JJJ-A</span> | Todos los derechos reservados
+        </div>
+    </div>
+
+    <script src="{% static 'js/app.js' %}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.toggle-password-btn').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    var wrapper = this.closest('.password-input-wrapper');
+                    var input = wrapper ? wrapper.querySelector('input') : null;
+                    var icon = this.querySelector('i');
+                    if (input) {
+                        if (input.type === 'password') {
+                            input.type = 'text';
+                            icon.className = 'bi bi-eye-slash';
+                        } else {
+                            input.type = 'password';
+                            icon.className = 'bi bi-eye';
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

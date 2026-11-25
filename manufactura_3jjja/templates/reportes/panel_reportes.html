@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Panel de Reportes - 3-JJJ-A{% endblock %}
+
+
+
+{% block page_title %}<i class="bi bi-file-earmark-pdf"></i> Panel de <span>Reportes PDF</span>{% endblock %}
+
+{% block content %}
+<div class="reportes-container">
+    <div class="reportes-header">
+        <h1><i class="bi bi-file-earmark-pdf"></i> Generacion de Reportes</h1>
+        <p>Descargue reportes en formato PDF de todos los modulos del sistema</p>
+    </div>
+
+    <div class="reportes-grid">
+        <!-- Usuarios -->
+        <div class="reporte-card">
+            <div class="reporte-icon blue"><i class="bi bi-people"></i></div>
+            <h3>Usuarios Registrados</h3>
+            <p>Reporte completo de todos los usuarios del sistema con sus roles, estados y fechas de registro.</p>
+            <form method="get" action="{% url 'core:reporte_usuarios_pdf' %}" class="filtros-form" id="form-usuarios">
+                <select name="rol" class="filtro-select">
+                    <option value="">Todos los roles</option>
+                    <option value="OPERARIO">Operario</option>
+                    <option value="GERENTE">Gerente</option>
+                    <option value="SUBGERENTE">Subgerente</option>
+                    <option value="DIRECTOR_PRODUCCION">Director Produccion</option>
+                    <option value="DIRECTOR_DESPACHO">Director Despacho</option>
+                </select>
+                <select name="estado" class="filtro-select">
+                    <option value="">Todos los estados</option>
+                    <option value="activo">Activo</option>
+                    <option value="inactivo">Inactivo</option>
+                </select>
+            </form>
+            <button type="button" class="btn-reporte btn-blue" onclick="descargarConFiltros('form-usuarios', '{% url 'core:reporte_usuarios_pdf' %}');">
+                <i class="bi bi-download"></i> Descargar PDF
+            </button>
+        </div>
+
+        <!-- Modelos -->
+        <div class="reporte-card">
+            <div class="reporte-icon green"><i class="bi bi-box-seam"></i></div>
+            <h3>Catalogo de Modelos</h3>
+            <p>Reporte del catalogo completo de modelos de calzado con sus materiales y recetas.</p>
+            <a href="{% url 'core:reporte_modelos_pdf' %}" class="btn-reporte btn-green">
+                <i class="bi bi-download"></i> Descargar PDF
+            </a>
+        </div>
+
+        <!-- Lotes -->
+        <div class="reporte-card">
+            <div class="reporte-icon orange"><i class="bi bi-collection"></i></div>
+            <h3>Lotes de Produccion</h3>
+            <p>Reporte de lotes de produccion con modelo, cantidad solicitada y estado actual.</p>
+            <form method="get" action="{% url 'core:reporte_lotes_pdf' %}" class="filtros-form" id="form-lotes">
+                <select name="estado" class="filtro-select">
+                    <option value="">Todos los estados</option>
+                    <option value="PENDIENTE">Pendiente</option>
+                    <option value="EN_PROCESO">En Proceso</option>
+                    <option value="COMPLETADO">Completado</option>
+                    <option value="APROBADO">Aprobado</option>
+                    <option value="RECHAZADO">Rechazado</option>
+                </select>
+            </form>
+            <button type="button" class="btn-reporte btn-orange" onclick="descargarConFiltros('form-lotes', '{% url 'core:reporte_lotes_pdf' %}');">
+                <i class="bi bi-download"></i> Descargar PDF
+            </button>
+        </div>
+
+        <!-- Incidentes -->
+        <div class="reporte-card">
+            <div class="reporte-icon red"><i class="bi bi-exclamation-triangle"></i></div>
+            <h3>Incidentes</h3>
+            <p>Reporte historico de incidentes con filtros por estado, fecha y severidad.</p>
+            <form method="get" action="{% url 'core:reporte_incidentes_pdf' %}" class="filtros-form" id="form-incidentes">
+                <select name="estado" class="filtro-select">
+                    <option value="">Todos los estados</option>
+                    <option value="PENDIENTE">Pendiente</option>
+                    <option value="EN_PROCESO">En Proceso</option>
+                    <option value="RESUELTO">Resuelto</option>
+                    <option value="ESCALADO">Escalado</option>
+                </select>
+                <input type="date" name="fecha_desde" class="filtro-select" placeholder="Desde">
+                <input type="date" name="fecha_hasta" class="filtro-select" placeholder="Hasta">
+            </form>
+            <button type="button" class="btn-reporte btn-red" onclick="descargarConFiltros('form-incidentes', '{% url 'core:reporte_incidentes_pdf' %}');">
+                <i class="bi bi-download"></i> Descargar PDF
+            </button>
+        </div>
+
+        <!-- Materiales -->
+        <div class="reporte-card">
+            <div class="reporte-icon purple"><i class="bi bi-layers"></i></div>
+            <h3>Materiales</h3>
+            <p>Reporte de inventario de materiales con unidades de medida y uso en modelos.</p>
+            <a href="{% url 'core:reporte_materiales_pdf' %}" class="btn-reporte btn-purple">
+                <i class="bi bi-download"></i> Descargar PDF
+            </a>
+        </div>
+
+        <!-- Etapas -->
+        <div class="reporte-card">
+            <div class="reporte-icon teal"><i class="bi bi-diagram-3"></i></div>
+            <h3>Etapas de Produccion</h3>
+            <p>Reporte de etapas con operarios asignados, maquinas y registros de produccion.</p>
+            <a href="{% url 'core:reporte_etapas_pdf' %}" class="btn-reporte btn-teal">
+                <i class="bi bi-download"></i> Descargar PDF
+            </a>
+        </div>
+        <!-- ============================================================
+             AUDITORÍA DEL SISTEMA (auto-instalado)
+             ============================================================ -->
+        {% if usuario.is_staff %}
+        <div class="reporte-card">
+            <div class="reporte-icon blue"><i class="bi bi-shield-check"></i></div>
+            <h3>Auditoría del Sistema</h3>
+            <p>Reporte completo de trazabilidad: quién creó, quién modificó,
+               cuándo y estado activo de cada registro del sistema.</p>
+
+            <form method="get" action="{% url 'core:reporte_auditoria_pdf' %}"
+                  class="filtros-form" id="form-auditoria">
+
+                <select name="tabla" class="filtro-select">
+                    <option value="">Todas las tablas</option>
+                    <option value="Usuario">Usuarios</option>
+                    <option value="Modelo">Modelos</option>
+                    <option value="Material">Materiales</option>
+                    <option value="LoteProduccion">Lotes de Producción</option>
+                    <option value="Etapa">Etapas</option>
+                    <option value="RegistroEtapa">Registros de Etapa</option>
+                    <option value="Incidente">Incidentes</option>
+                    <option value="Maquinaria">Maquinaria</option>
+                </select>
+
+                <input type="text" name="usuario" class="filtro-select"
+                       placeholder="ID de usuario (opcional)">
+
+                <input type="date" name="fecha_desde" class="filtro-select"
+                       placeholder="Creado desde">
+
+                <input type="date" name="fecha_hasta" class="filtro-select"
+                       placeholder="Creado hasta">
+
+                <label class="filtro-checkbox">
+                    <input type="checkbox" name="solo_activos" value="1">
+                    <span>Solo activos</span>
+                </label>
+            </form>
+
+            <button type="button" class="btn-reporte btn-blue"
+                    onclick="descargarConFiltros('form-auditoria',
+                             '{% url 'core:reporte_auditoria_pdf' %}');">
+                <i class="bi bi-download"></i> Descargar PDF
+            </button>
+        </div>
+        {% endif %}
+
+
+    </div>
+</div>
+
+<!-- ================================================================
+     Helper JS (auto-instalado): arma URL con filtros del formulario
+     ================================================================ -->
+<script>
+function descargarConFiltros(formId, baseUrl) {
+    const form = document.getElementById(formId);
+    if (!form) { window.location.href = baseUrl; return; }
+    const fd = new FormData(form);
+    const params = new URLSearchParams();
+    for (const [key, value] of fd.entries()) {
+        if (value !== null && value !== undefined && String(value).trim() !== '') {
+            params.append(key, value);
+        }
+    }
+    const qs = params.toString();
+    window.location.href = qs ? `${baseUrl}?${qs}` : baseUrl;
+}
+</script>
+
+<style>
+    .filtro-checkbox {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.9rem; color: #334155;
+        padding: 6px 10px; border: 1px solid #e2e8f0;
+        border-radius: 6px; background: #f8fafc;
+        cursor: pointer; user-select: none;
+    }
+    .filtro-checkbox input[type="checkbox"] { accent-color: #059669; cursor: pointer; }
+    .btn-reporte {
+        display: inline-flex; align-items: center; justify-content: center;
+        gap: 6px; padding: 10px 16px; border: none; border-radius: 8px;
+        color: #fff; font-weight: 600; cursor: pointer; text-decoration: none;
+        transition: transform .15s ease;
+    }
+    .btn-reporte:hover { transform: translateY(-1px); }
+    .btn-blue{background:#2563eb;} .btn-green{background:#059669;}
+    .btn-orange{background:#ea580c;} .btn-red{background:#dc2626;}
+    .btn-purple{background:#7c3aed;} .btn-teal{background:#0d9488;}
+</style>
+
+{% endblock %}

@@ -1,0 +1,473 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Configuracion de Produccion - 3-JJJ-A{% endblock %}
+
+
+
+{% block page_title %}Configuracion de Produccion{% endblock %}
+
+{% block content %}
+<div class="config-container">
+
+    <!-- Header -->
+    <div class="config-header">
+        <div>
+            <h1><i class="bi bi-gear"></i> Configuracion de Produccion</h1>
+            <p style="color: #94a3b8; margin: 4px 0 0 0; font-size: 0.85rem;">
+                Ingenieria y Configuracion Operativa | {{ usuario.nombre_completo }}
+            </p>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-icon verde">📦</div>
+            <div class="stat-info">
+                <h4>{{ modelos|length }}</h4>
+                <span>Modelos</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon azul">⚙️</div>
+            <div class="stat-info">
+                <h4>{{ maquinarias|length }}</h4>
+                <span>Maquinas</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon ambar">📐</div>
+            <div class="stat-info">
+                <h4>{{ etapas|length }}</h4>
+                <span>Etapas</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon rojo">📋</div>
+            <div class="stat-info">
+                <h4>{{ lotes|length }}</h4>
+                <span>Lotes</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== TABS PRINCIPALES POR FORMULARIO ========== -->
+    <div class="tabs-nav">
+        <button type="button" class="tab-btn active" onclick="switchTab('modelos')" id="tab-modelos">
+            <span>📦</span> Modelos
+        </button>
+        <button type="button" class="tab-btn" onclick="switchTab('maquinaria')" id="tab-maquinaria">
+            <span>⚙️</span> Maquinaria
+        </button>
+        <button type="button" class="tab-btn" onclick="switchTab('etapas')" id="tab-etapas">
+            <span>📐</span> Etapas
+        </button>
+        <button type="button" class="tab-btn" onclick="switchTab('lotes')" id="tab-lotes">
+            <span>📋</span> Lotes
+        </button>
+    </div>
+
+    <!-- ========== PANEL: MODELOS ========== -->
+    <div id="panel-modelos" class="tab-panel active">
+        <!-- Sub-tabs -->
+        <div class="sub-tabs-nav">
+            <button type="button" class="sub-tab-btn active" onclick="switchSubTab('modelos', 'registrar')" id="subtab-modelos-registrar">
+                <span>➕</span> Registrar Modelo
+            </button>
+            <button type="button" class="sub-tab-btn" onclick="switchSubTab('modelos', 'consultar')" id="subtab-modelos-consultar">
+                <span>📊</span> Catalogo de Modelos
+                <span class="badge">{{ modelos|length }}</span>
+            </button>
+        </div>
+
+        <!-- Sub-panel: Registrar Modelo -->
+        <div id="subpanel-modelos-registrar" class="sub-tab-panel active">
+            <div class="card">
+                <h2><span>📦</span> Registrar Nuevo Modelo</h2>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_type" value="modelo">
+
+                    <div class="form-group">
+                        <label for="model-name" class="required">Nombre del Modelo</label>
+                        <input type="text" name="nombre_modelo" id="model-name" class="form-control-dark"
+                               placeholder="Ej. Runner Pro 2026" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="model-material">Material Principal</label>
+                        <input type="text" name="material" id="model-material" class="form-control-dark"
+                               placeholder="Ej. Cuero Sintetico">
+                    </div>
+
+                    <div class="info-box">
+                        <p><i class="bi bi-info-circle"></i> El tiempo promedio se calcula automaticamente con los registros de planta.</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Materiales de la Receta</label>
+                        <div id="materials-container">
+                            <div class="material-row">
+                                <input type="text" name="materiales[]" class="form-control-dark" placeholder="Material" required>
+                                <input type="number" step="0.001" name="cantidades[]" class="form-control-dark" placeholder="Cant. por par" required>
+                                <button type="button" class="btn-remove" onclick="this.closest('.material-row').remove()">✕</button>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-add" onclick="addMaterialRow()">
+                            <span>➕</span> Añadir Material
+                        </button>
+                    </div>
+
+                    <button type="submit" class="btn-submit">
+                        <span>✓</span> Registrar Modelo
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Sub-panel: Consultar Modelos -->
+        <div id="subpanel-modelos-consultar" class="sub-tab-panel">
+            <div class="card">
+                <h2><span>📦</span> Catalogo de Modelos</h2>
+                <div style="overflow-x: auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID Modelo</th>
+                                <th>Nombre</th>
+                                <th>Materiales</th>
+                                <th>Fecha Registro</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in modelos %}
+                            <tr>
+                                <td><strong>{{ m.id_modelo }}</strong></td>
+                                <td>{{ m.nombre }}</td>
+                                <td>
+                                    {% for mm in m.materialmodelo_set.all %}
+                                        <span style="background: rgba(16,185,129,0.1); color: #10b981; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">
+                                            {{ mm.id_material.nombre_material }}
+                                        </span>
+                                    {% empty %}
+                                        <span style="color: #64748b;">Sin materiales</span>
+                                    {% endfor %}
+                                </td>
+                                <td>{{ m.fecha_registro|date:"d/m/Y" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="empty-state">
+                                    <span style="font-size: 2rem;">📭</span><br>
+                                    No hay modelos registrados todavia
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== PANEL: MAQUINARIA ========== -->
+    <div id="panel-maquinaria" class="tab-panel">
+        <!-- Sub-tabs -->
+        <div class="sub-tabs-nav">
+            <button type="button" class="sub-tab-btn active" onclick="switchSubTab('maquinaria', 'registrar')" id="subtab-maquinaria-registrar">
+                <span>➕</span> Registrar Maquinaria
+            </button>
+            <button type="button" class="sub-tab-btn" onclick="switchSubTab('maquinaria', 'consultar')" id="subtab-maquinaria-consultar">
+                <span>📊</span> Maquinarias Registradas
+                <span class="badge">{{ maquinarias|length }}</span>
+            </button>
+        </div>
+
+        <!-- Sub-panel: Registrar Maquinaria -->
+        <div id="subpanel-maquinaria-registrar" class="sub-tab-panel active">
+            <div class="card">
+                <h2><span>⚙️</span> Registrar Nueva Maquinaria</h2>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_type" value="maquinaria">
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label for="id_id_maquina" class="required">ID de Maquina</label>
+                            {{ maquinaria_form.id_maquina }}
+                        </div>
+                        <div class="form-group">
+                            <label for="id_nombre" class="required">Nombre de la Maquina</label>
+                            {{ maquinaria_form.nombre }}
+                        </div>
+                    </div>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label for="id_potencia_kw">Potencia (kW)</label>
+                            {{ maquinaria_form.potencia_kw }}
+                        </div>
+                        <div class="form-group">
+                            <label for="id_factor_carga">Factor de Carga</label>
+                            {{ maquinaria_form.factor_carga }}
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="id_id_etapa" class="required">Etapa Asignada</label>
+                        {{ maquinaria_form.id_etapa }}
+                    </div>
+                    <button type="submit" class="btn-submit">
+                        <span>✓</span> Registrar Maquina
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Sub-panel: Consultar Maquinarias -->
+        <div id="subpanel-maquinaria-consultar" class="sub-tab-panel">
+            <div class="card">
+                <h2><span>⚙️</span> Maquinarias Registradas</h2>
+                <div style="overflow-x: auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID Maquina</th>
+                                <th>Nombre</th>
+                                <th>Potencia (kW)</th>
+                                <th>Factor Carga</th>
+                                <th>Etapa</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in maquinarias %}
+                            <tr>
+                                <td><strong>{{ m.id_maquina }}</strong></td>
+                                <td>{{ m.nombre }}</td>
+                                <td>{{ m.potencia_kw|default:"—" }}</td>
+                                <td>{{ m.factor_carga|default:"—" }}</td>
+                                <td>{{ m.id_etapa.nombre_etapa|default:"Sin etapa" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="empty-state">
+                                    <span style="font-size: 2rem;">📭</span><br>
+                                    No hay maquinarias registradas
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== PANEL: ETAPAS ========== -->
+    <div id="panel-etapas" class="tab-panel">
+        <!-- Sub-tabs -->
+        <div class="sub-tabs-nav">
+            <button type="button" class="sub-tab-btn active" onclick="switchSubTab('etapas', 'registrar')" id="subtab-etapas-registrar">
+                <span>➕</span> Registrar Etapa
+            </button>
+            <button type="button" class="sub-tab-btn" onclick="switchSubTab('etapas', 'consultar')" id="subtab-etapas-consultar">
+                <span>📊</span> Etapas Registradas
+                <span class="badge">{{ etapas|length }}</span>
+            </button>
+        </div>
+
+        <!-- Sub-panel: Registrar Etapa -->
+        <div id="subpanel-etapas-registrar" class="sub-tab-panel active">
+            <div class="card">
+                <h2><span>📐</span> Registrar Nueva Etapa</h2>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_type" value="etapa">
+
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label for="etapa-id" class="required">ID de Etapa</label>
+                            <input type="text" name="id_etapa" id="etapa-id" class="form-control-dark"
+                                   placeholder="Ej. ETP-CORTE" required maxlength="50">
+                        </div>
+                        <div class="form-group">
+                            <label for="etapa-nombre" class="required">Nombre de la Etapa</label>
+                            <input type="text" name="nombre_etapa" id="etapa-nombre" class="form-control-dark"
+                                   placeholder="Ej. Corte de Material" required maxlength="100">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="etapa-secuencia" class="required">Secuencia (orden)</label>
+                        <input type="number" name="secuencia" id="etapa-secuencia" class="form-control-dark"
+                               placeholder="Ej. 1" required min="0">
+                    </div>
+
+                    <button type="submit" class="btn-submit">
+                        <span>✓</span> Registrar Etapa
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Sub-panel: Consultar Etapas -->
+        <div id="subpanel-etapas-consultar" class="sub-tab-panel">
+            <div class="card">
+                <h2><span>📐</span> Etapas Registradas</h2>
+                <div style="overflow-x: auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID Etapa</th>
+                                <th>Nombre</th>
+                                <th>Secuencia</th>
+                                <th>Operarios</th>
+                                <th>Maquinas</th>
+                                <th style="width: 80px; text-align: center;">Accion</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for e in etapas %}
+                            <tr>
+                                <td><strong>{{ e.id_etapa }}</strong></td>
+                                <td>{{ e.nombre_etapa }}</td>
+                                <td>{{ e.secuencia }}</td>
+                                <td>{{ e.usuarios_asignados.count }}</td>
+                                <td>{{ e.maquinaria_set.count }}</td>
+                                <td style="text-align: center;">
+                                    <button type="button" class="btn-remove" title="Eliminar etapa"
+                                            onclick="abrirModalEliminar('{{ e.id_etapa|escapejs }}', '{{ e.nombre_etapa|escapejs }}')">
+                                        ✕
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="empty-state">
+                                    <span style="font-size: 2rem;">📭</span><br>
+                                    No hay etapas registradas
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== PANEL: LOTES ========== -->
+    <div id="panel-lotes" class="tab-panel">
+        <!-- Sub-tabs -->
+        <div class="sub-tabs-nav">
+            <button type="button" class="sub-tab-btn active" onclick="switchSubTab('lotes', 'registrar')" id="subtab-lotes-registrar">
+                <span>➕</span> Registrar Lotes
+            </button>
+            <button type="button" class="sub-tab-btn" onclick="switchSubTab('lotes', 'consultar')" id="subtab-lotes-consultar">
+                <span>📊</span> Lotes Activos
+                <span class="badge">{{ lotes|length }}</span>
+            </button>
+        </div>
+
+        <!-- Sub-panel: Registrar Lotes -->
+        <div id="subpanel-lotes-registrar" class="sub-tab-panel active">
+            <div class="card">
+                <h2><span>📋</span> Registrar Lotes de Produccion</h2>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_type" value="lotes">
+
+                    <div class="form-group">
+                        <label for="modelo-id" class="required">Asignar al Modelo</label>
+                        <select name="modelo_id" id="modelo-id" class="form-control-dark select-dark" required>
+                            <option value="">--- Seleccione un modelo ---</option>
+                            {% for m in modelos %}
+                            <option value="{{ m.id_modelo }}">{{ m.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div id="lotes-container">
+                        <div class="material-row">
+                            <input type="text" name="lotes[]" class="form-control-dark" placeholder="ID del Lote" required>
+                            <input type="number" name="cantidades[]" class="form-control-dark" placeholder="Cantidad (pares)" required>
+                            <button type="button" class="btn-remove" onclick="this.closest('.material-row').remove()">✕</button>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn-add" onclick="addLoteRow()">
+                        <span>➕</span> Añadir Lote
+                    </button>
+
+                    <button type="submit" class="btn-submit" style="margin-top: 16px;">
+                        <span>✓</span> Registrar Lotes
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Sub-panel: Consultar Lotes -->
+        <div id="subpanel-lotes-consultar" class="sub-tab-panel">
+            <div class="card">
+                <h2><span>📋</span> Lotes Activos</h2>
+                <div style="overflow-x: auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID Lote</th>
+                                <th>Modelo</th>
+                                <th>Cantidad</th>
+                                <th>Estado</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for l in lotes %}
+                            <tr>
+                                <td><strong>{{ l.id_lote }}</strong></td>
+                                <td>{{ l.id_modelo.nombre }}</td>
+                                <td>{{ l.cant_solicitada }} pares</td>
+                                <td>
+                                    <span style="background: {% if l.estado_actual == 'APROBADO' %}rgba(16,185,129,0.2){% elif l.estado_actual == 'RECHAZADO' %}rgba(239,68,68,0.2){% else %}rgba(245,158,11,0.2){% endif %};
+                                                 color: {% if l.estado_actual == 'APROBADO' %}#059669{% elif l.estado_actual == 'RECHAZADO' %}#dc2626{% else %}#d97706{% endif %};
+                                                 padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
+                                        {{ l.estado_actual }}
+                                    </span>
+                                </td>
+                                <td>{{ l.fecha_creacion|date:"d/m/Y" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="empty-state">
+                                    <span style="font-size: 2rem;">📭</span><br>
+                                    No hay lotes registrados
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ===== MODAL ELIMINAR ETAPA ===== -->
+<div id="modal-eliminar-etapa" class="modal-overlay">
+    <div class="modal-box">
+        <h3>Eliminar Etapa</h3>
+        <p>
+            Esta seguro de eliminar la etapa <span class="etapa-nombre" id="modal-etapa-nombre"></span>?<br>
+            Esta accion no se puede deshacer.
+        </p>
+        <form method="post" id="modal-etapa-form" class="modal-actions">
+            {% csrf_token %}
+            <input type="hidden" name="form_type" value="eliminar_etapa">
+            <input type="hidden" name="etapa_id" id="modal-etapa-id">
+            <button type="button" class="btn-modal-cancelar" onclick="cerrarModalEliminar()">Cancelar</button>
+            <button type="submit" class="btn-modal-eliminar">Eliminar</button>
+        </form>
+    </div>
+</div>
+
+
+{% endblock %}

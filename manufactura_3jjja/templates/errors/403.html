@@ -1,0 +1,78 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso Denegado - 3-JJJ-A</title>
+
+    <!-- Estilos -->
+    <link rel="stylesheet" href="{% static 'css/custom.css' %}">
+
+    <!-- Iconos -->
+    <link rel="stylesheet" href="{% static 'css/3jjja-icons-mask.css' %}">
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+
+    
+<body class="login-page">
+
+    <!-- Fondo decorativo -->
+    <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background-image: radial-gradient(circle at 50% 50%, rgba(239, 68, 68, 0.05) 0%, transparent 60%);
+                z-index: -1;"></div>
+
+    <div class="error-page">
+        <div class="fade-in">
+            <!-- Icono de bloqueo -->
+            <i class="bi bi-shield-lock" style="font-size: 4rem; color: #ef4444; opacity: 0.5; display: block; margin-bottom: 16px;"></i>
+
+            <!-- Codigo de error -->
+            <div class="error-code">403</div>
+
+            <!-- Titulo -->
+            <div class="error-title">
+                <i class="bi bi-x-octagon"></i> Acceso Denegado
+            </div>
+
+            <!-- Descripcion -->
+            <div class="error-desc">
+                No tiene los permisos necesarios para acceder a esta seccion del sistema.
+                Esta area esta restringida para su rol de usuario.
+                <br><br>
+                Si considera que esto es un error, contacte al
+                <strong style="color: #f59e0b;">administrador</strong> o a
+                <strong style="color: #f59e0b;">alta gerencia</strong>.
+            </div>
+
+            <!-- Botones de navegacion -->
+            <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+                <a href="javascript:history.back()" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Volver Atras
+                </a>
+                <a href="{% url 'core:dashboard' %}" class="btn btn-primary">
+                    <i class="bi bi-speedometer2"></i> Ir al Dashboard
+                </a>
+                {% if user.is_authenticated %}
+                <a href="{% url 'core:reportar_incidente' %}" class="btn btn-outline">
+                    <i class="bi bi-exclamation-triangle"></i> Reportar Incidente
+                </a>
+                {% endif %}
+            </div>
+
+            <!-- Info de sesion -->
+            {% if user.is_authenticated %}
+            <div style="margin-top: 28px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05);">
+                <div style="font-size: 0.8rem; color: #64748b;">
+                    Sesion activa como: <strong style="color: #94a3b8;">{{ user.get_full_name|default:user.username }}</strong>
+                    <span style="color: #475569;">|</span>
+                    Rol: <strong style="color: #94a3b8;">{{ user.groups.all.0.name|default:"Sin rol" }}</strong>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script src="{% static 'js/app.js' %}"></script>
+
+</body>
+</html>

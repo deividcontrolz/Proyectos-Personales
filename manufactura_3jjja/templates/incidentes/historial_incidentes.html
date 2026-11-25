@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Historial de Incidentes - 3-JJJ-A{% endblock %}
+
+
+
+{% block page_title %}Historial de Incidentes{% endblock %}
+
+{% block content %}
+<div class="historial-container">
+    <!-- Header -->
+    <div class="historial-header">
+        <div>
+            <h1><i class="bi bi-clock-history"></i> Historial de Incidentes</h1>
+            <p style="color: #94a3b8; margin: 4px 0 0 0; font-size: 0.85rem;">
+                Gestion de Alertas y Fallas | {{ usuario.nombre_completo }}
+            </p>
+        </div>
+    </div>
+
+    <!-- Estadisticas -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">{{ stats.total }}</div>
+            <div class="stat-label">Total</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value red">{{ stats.pendientes }}</div>
+            <div class="stat-label">Pendientes</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value orange">{{ stats.en_proceso }}</div>
+            <div class="stat-label">En Proceso</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value green">{{ stats.resueltos }}</div>
+            <div class="stat-label">Resueltos</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value purple">{{ stats.escalados }}</div>
+            <div class="stat-label">Escalados</div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card">
+        <form method="get" class="filter-bar">
+            <div class="filter-group">
+                <label for="etapa">Etapa</label>
+                <select name="etapa" id="etapa" class="form-control-dark">
+                    <option value="">Todas las etapas</option>
+                    {% for etapa in etapas %}
+                    <option value="{{ etapa.id_etapa }}" {% if filtro_etapa == etapa.id_etapa %}selected{% endif %}>
+                        {{ etapa.nombre_etapa }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="estado">Estado</label>
+                <select name="estado" id="estado" class="form-control-dark">
+                    <option value="">Todos los estados</option>
+                    {% for valor, etiqueta in estados %}
+                    <option value="{{ valor }}" {% if filtro_estado == valor %}selected{% endif %}>
+                        {{ etiqueta }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn-filter">
+                <i class="bi bi-funnel"></i> Filtrar
+            </button>
+            <a href="{% url 'core:historial_incidentes' %}" class="btn-filter" style="background: #475569; text-decoration: none;">
+                <i class="bi bi-x-circle"></i> Limpiar
+            </a>
+        </form>
+    </div>
+
+    <!-- Tabla de Incidentes -->
+    <div class="card">
+        <div style="overflow-x: auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Tipo</th>
+                        <th>Severidad</th>
+                        <th>Descripcion</th>
+                        <th>Etapa</th>
+                        <th>Reportado por</th>
+                        <th>Fecha</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inc in incidentes %}
+                    <tr>
+                        <td><strong>#{{ inc.id_incidente }}</strong></td>
+                        <td>{{ inc.get_tipo_incidente_display }}</td>
+                        <td>
+                            <span class="severity-dot severity-{{ inc.severidad|lower }}"></span>
+                            {{ inc.get_severidad_display }}
+                        </td>
+                        <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis;">
+                            {{ inc.descripcion|truncatechars:60 }}
+                        </td>
+                        <td>{{ inc.id_etapa.nombre_etapa|default:"N/A" }}</td>
+                        <td>{{ inc.id_usuario_reporta.nombre_completo }}</td>
+                        <td>{{ inc.fecha_reporte|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            <span class="status-badge badge-{{ inc.estado|lower }}">
+                                {{ inc.get_estado_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="empty-state">
+                            <i class="bi bi-inbox" style="font-size: 2rem; color: #64748b;"></i><br>
+                            No se encontraron incidentes con los filtros seleccionados
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
